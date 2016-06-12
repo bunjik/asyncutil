@@ -85,17 +85,6 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 	private Throwable throwable = null;
 
-//	/**
-//	 ********************************************
-//	 * コンストラクタ.
-//	 *
-//	 * @param o 結果を生成するObservebleの実装クラス
-//	 ********************************************
-//	 */
-//	public AsyncResult(Observable<List<T>> o) {
-//		this(o, -1);
-//	}
-
 	/**
 	 ********************************************
 	 * コンストラクタ.
