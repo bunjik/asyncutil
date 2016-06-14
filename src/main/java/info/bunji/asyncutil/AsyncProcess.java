@@ -64,8 +64,8 @@ public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
 		} catch (Throwable t) {
 			subscriber.onError(t);
 		} finally {
-			postProcess();
 			logger.trace("finish async process.");
+			postProcess();
 		}
 	}
 
@@ -93,7 +93,10 @@ public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
 	 **********************************
 	 */
 	protected final void append(List<T> list) {
-		if (subscriber != null && !subscriber.isUnsubscribed()) {
+		if (subscriber == null) {
+			throw new IllegalStateException("before process execution.");
+		}
+		if (!subscriber.isUnsubscribed()) {
 			subscriber.onNext(list);
 			list.clear();
 		}
@@ -107,7 +110,10 @@ public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
 	 **********************************
 	 */
 	protected final void append(T entity) {
-		if (subscriber != null && !subscriber.isUnsubscribed()) {
+		if (subscriber == null) {
+			throw new IllegalStateException("before process execution.");
+		}
+		if (!subscriber.isUnsubscribed()) {
 			subscriber.onNext(Arrays.asList(entity));
 		}
 	}
@@ -129,10 +135,11 @@ public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
 	 *
 	 * 必要に応じてリソースの開放等を行う。<br>
 	 * デフォルトは何も行いません。<br>
-	 * RessultSetのクローズなど、必要に応じて実装してください。
+	 * RessultSetのクローズなど、必要に応じて実装してください。<br>
+	 * なお、このメソッド内の例外は呼び出し元には通知されません。
 	 **********************************
 	 */
 	public void postProcess() {
-		logger.debug("call postProcess()");
+		logger.trace("call postProcess()");
 	}
 }

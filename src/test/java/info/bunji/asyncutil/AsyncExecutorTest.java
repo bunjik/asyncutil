@@ -7,6 +7,7 @@ import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -57,6 +58,7 @@ public class AsyncExecutorTest {
 				if (temp.size() == step) {
 					append(temp);
 				}
+				if (isInterrupted()) break;
 			}
 			if (!temp.isEmpty()) append(temp);
 		}
@@ -65,18 +67,75 @@ public class AsyncExecutorTest {
 	class TestProcessWithException extends AsyncProcess<String> {
 		@Override
 		protected void execute() throws Exception {
-			int step = 10;
-			List<String> temp = new ArrayList<>();
 			for (int i = 0; i < 1000; i++) {
-				temp.add("" + i);
-				if (temp.size() == step) {
-					append(temp);
-				}
+				append("" + i);
 				if (i == 500) {
 					throw new Exception("test");
 				}
+				if (isInterrupted()) break;
 			}
-			if (!temp.isEmpty()) append(temp);
+		}
+	}
+
+	class TestProcessWithException2 extends AsyncProcess<String> {
+
+		public TestProcessWithException2() {
+			isInterrupted();
+
+			// occur IllegalStateException()
+			append("test");
+		}
+
+		@Override
+		protected void execute() throws Exception {
+			// do nothing.
+		}
+	}
+
+	class TestProcessWithException3 extends AsyncProcess<String> {
+
+		public TestProcessWithException3() {
+			isInterrupted();
+
+			// occur IllegalStateException()
+			append(Arrays.asList("test1", "test2"));
+		}
+
+		@Override
+		protected void execute() throws Exception {
+			// do nothing.
+		}
+	}
+
+	class TestPostProcess extends AsyncProcess<String> {
+
+		@Override
+		protected void execute() throws Exception {
+			// do nothing.
+		}
+
+		@Override
+		public void postProcess() {
+			append("test");
+			append(Arrays.asList("test1", "test2"));
+		}
+	}
+
+	class TestProcessWithWait extends AsyncProcess<String> {
+
+		private int size;
+
+		public TestProcessWithWait(int size) {
+			this.size = size;
+		}
+
+		@Override
+		protected void execute() throws Exception {
+			for (int i = 0; i < size; i++) {
+				append("" + i);
+				Thread.sleep(30);
+				if (isInterrupted()) break;
+			}
 		}
 	}
 
@@ -166,6 +225,43 @@ public class AsyncExecutorTest {
 			return;
 		}
 		Assert.fail("not exception");
+	}
+
+	@Test(expected=IllegalStateException.class)
+	public void testExecuteException2() throws Exception {
+		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithException2())) {
+		}
+		Assert.fail("not exception");
+	}
+
+	@Test(expected=IllegalStateException.class)
+	public void testExecuteException3() throws Exception {
+		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithException3())) {
+		}
+		Assert.fail("not exception");
+	}
+
+	@Test
+	public void testExecuteWait() throws Exception {
+		int count = 0;
+		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithWait(100))) {
+			for (String s : results) {
+				count++;
+//				Thread.sleep(30);
+			}
+		}
+		assertThat(count, is(100));
+	}
+
+	@Test
+	public void testExecutePost() throws Exception {
+		int count = 0;
+		try (AsyncResult<String> results = AsyncExecutor.execute(new TestPostProcess())) {
+			for (String s : results) {
+				count++;
+			}
+		}
+		assertThat(count, is(0));
 	}
 
 	@Test(expected=UnsupportedOperationException.class)

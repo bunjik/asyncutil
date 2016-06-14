@@ -26,8 +26,9 @@ import rx.Observable;
  * @author f.kinoshita
  ************************************************
  */
-public class AsyncExecutor {
+public final class AsyncExecutor {
 
+	private static final AsyncExecutor executor = new AsyncExecutor();
 
 	private AsyncExecutor() {
 		// do nothing.
@@ -52,14 +53,14 @@ public class AsyncExecutor {
 
 	/**
 	 **********************************
-	 * 指定された処理を非同期で実行し、結果を非同期で返す(蓄積件数制限あり).
+	 * 指定された処理を非同期で実行し、結果を非同期で返す(キュー件数制限あり).
 	 *
 	 * 指定された件数以上のデータが結果データ用のキューに存在する場合、取得処理を
 	 * 一時停止させ、過剰なメモリを使用しないよう制御する。<br>
 	 * 結果データの処理側に対して、データ取得処理のほうが高速な場合にメモリの使用を
 	 * 抑制するために利用する。<br>
 	 * なお、キューの制限値が少なすぎると、キューの空きを待つ時間が多くなり、
-	 * パフォーマンスの低下につながるため、最低でも1000件程度を指定すべきです。
+	 * パフォーマンスの低下につながるため、読込処理側とのバランスを取る必要があります。
 	 *
 	 * @param <T> 処理結果の型
 	 * @param asyncProc 非同期で実行される処理クラスのインスタンス

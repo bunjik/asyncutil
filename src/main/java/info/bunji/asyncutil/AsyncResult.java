@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import rx.Observable;
+import rx.Scheduler;
 import rx.Subscriber;
 import rx.schedulers.Schedulers;
 
@@ -85,6 +86,16 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 	private Throwable throwable = null;
 
+
+	/**
+	 * コンストラクタ.
+	 * <br>
+	 * @param o 結果を生成するObservebleの実装クラス
+	 */
+	AsyncResult(Observable<List<T>> o, final int queueLimit) {
+		this(o, queueLimit, Schedulers.newThread());
+	}
+
 	/**
 	 ********************************************
 	 * コンストラクタ.
@@ -93,7 +104,7 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 	 * @param queueLimit 結果セットに蓄積できる最大件数
 	 ********************************************
 	 */
-	public AsyncResult(Observable<List<T>> o, final int queueLimit) {
+	AsyncResult(Observable<List<T>> o, final int queueLimit, Scheduler scheduler) {
 
 		subscriber = new Subscriber<List<T>>() {
 			/*
@@ -132,8 +143,7 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 				// キューが一定サイズを超えたら処理を一旦停止する
 				if (queueLimit > 0) {
 					while (true) {
-						int remain = iterator.queue.size();
-						if (queueLimit > remain) {
+						if (queueLimit > iterator.queue.size()) {
 							break;
 						}
 						logger.trace("waiting process. current queue=" + iterator.queue.size() + " limit=" + queueLimit);
@@ -143,14 +153,12 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 					}
 				}
 				// queueに要素を追加
-				if (!isUnsubscribed()) {
-					iterator.queue.addAll(t);
-				}
+				iterator.queue.addAll(t);
 			}
 		};
 
 		// 別スレッドで取得処理を開始する
-		o.subscribeOn(Schedulers.newThread()).subscribe(subscriber);
+		o.subscribeOn(scheduler).subscribe(subscriber);
 	}
 
 	/*
@@ -190,7 +198,7 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 	public void close() throws IOException {
 		// 処理が実行中の場合は中断する。
 		if (latch.getCount() > 0) {
-			//iterator.queue.clear();
+			iterator.queue.clear();
 			subscriber.unsubscribe();
 			latch.countDown();
 			logger.trace("process canceled.");
@@ -202,7 +210,7 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 	 * 非同期の処理結果を保持するイテレータ.
 	 * <br>
 	 * 処理結果は呼び出し側に返却した時点で、内部からは削除されます。<br>
-	 * @param <E>
+	 * @param <E> result type
 	 ********************************************
 	 */
 	class AsyncIterator<E> implements Iterator<E> {
@@ -212,7 +220,6 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 		/*
 		 ****************************************
-		 * (非 Javadoc)
 		 * @see java.util.Iterator#hasNext()
 		 ****************************************
 		 */
@@ -240,7 +247,6 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 		/*
 		 ****************************************
-		 * (非 Javadoc)
 		 * @see java.util.Iterator#next()
 		 ****************************************
 		 */
@@ -255,7 +261,6 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 		/*
 		 ****************************************
-		 * (非 Javadoc)
 		 * @see java.util.Iterator#remove()
 		 ****************************************
 		 */
