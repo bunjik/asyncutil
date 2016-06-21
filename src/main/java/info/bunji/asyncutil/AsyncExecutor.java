@@ -15,64 +15,322 @@
  */
 package info.bunji.asyncutil;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import rx.Observable;
+import rx.Scheduler;
+import rx.functions.Action0;
+import rx.schedulers.Schedulers;
 
 /**
  ************************************************
- * 非同期処理実行クラス
+ * async process executor
  *
  * @author f.kinoshita
  ************************************************
  */
 public final class AsyncExecutor {
 
-	private static final AsyncExecutor executor = new AsyncExecutor();
+	private static Logger logger = LoggerFactory.getLogger(AsyncExecutor.class);
+
+	private static final int DEFAULT_MAX_CONCURRENT = 10;
 
 	private AsyncExecutor() {
 		// do nothing.
 	}
 
 	/**
-	 **********************************
-	 * 指定された処理を非同期で実行し、結果を非同期で返す.
 	 *
-	 * 非同期処理の実行要求を発行した時点で結果のオブジェクトを返却します。<br>
-	 * 呼び出し側では、非同期の処理が完了するのを待たずに処理された結果を
-	 * 順次取得できます。
-	 *
-	 * @param <T> 処理結果の型
-	 * @param asyncProc 非同期で実行される処理クラスのインスタンス
-	 * @return 処理結果の反復子
-	 **********************************
+	 * @return builder
 	 */
-	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc) {
-		return execute(asyncProc, -1);
+	public static Builder builder() {
+		return new Builder();
 	}
 
 	/**
 	 **********************************
-	 * 指定された処理を非同期で実行し、結果を非同期で返す(キュー件数制限あり).
-	 *
-	 * 指定された件数以上のデータが結果データ用のキューに存在する場合、取得処理を
-	 * 一時停止させ、過剰なメモリを使用しないよう制御する。<br>
-	 * 結果データの処理側に対して、データ取得処理のほうが高速な場合にメモリの使用を
-	 * 抑制するために利用する。<br>
-	 * なお、キューの制限値が少なすぎると、キューの空きを待つ時間が多くなり、
-	 * パフォーマンスの低下につながるため、読込処理側とのバランスを取る必要があります。
-	 *
-	 * @param <T> 処理結果の型
-	 * @param asyncProc 非同期で実行される処理クラスのインスタンス
-	 * @param queueLimit キューに蓄積する最大サイズ
-	 * @return 処理結果の反復子
+	 * single async executor.
+	 * <p>
+	 * process async exxecute with default settings.<br>
+	 * <ul>
+	 * <li>result queue limit : no limit</li>
+	 * <li>execute thread scheduler : newThread</li>
+	 * </ul>
+	 * @param <T> result type
+	 * @param asyncProc		async process
+	 * @return iterable process result
+	 **********************************
+	 */
+	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc) {
+		return execute(asyncProc, -1, Schedulers.newThread());
+	}
+
+	/**
+	 **********************************
+	 * single async executor.
+	 * <p>
+	 * process async exxecute with default settings.<br>
+	 * <ul>
+	 * <li>execute thread scheduler : newThread</li>
+	 * </ul>
+	 * @param <T> result type
+	 * @param asyncProc		async process
+	 * @param queueLimit	limit result queue size
+	 * @return iterable process result
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc, int queueLimit) {
+		return execute(asyncProc, queueLimit, Schedulers.newThread());
+	}
+
+	/**
+	 **********************************
+	 * single async executor.
+	 * <p>
+	 * process async exxecute with default settings.<br>
+	 * <ul>
+	 * <li>result queue limit : no limit</li>
+	 * </ul>
+	 * @param <T> result type
+	 * @param asyncProc		async process
+	 * @param scheduler 	process execute scheduler
+	 * @return iterable process result
+	 **********************************
+	 */
+	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc, Scheduler scheduler) {
+		return execute(asyncProc, -1, scheduler);
+	}
+
+	/**
+	 **********************************
+	 * single async executor.
+	 * <p>
+	 * @param <T> result type
+	 * @param asyncProc		async process
+	 * @param queueLimit	limit result queue size
+	 * @param scheduler		process execute scheduler
+	 * @return iterable process result
+	 **********************************
+	 */
+	public static <T> AsyncResult<T> execute(final AsyncProcess<T> asyncProc, int queueLimit, Scheduler scheduler) {
 		// 非同期処理の監視用オブジェクトの生成
-		Observable<List<T>> o = Observable.create(asyncProc);
+		Observable<T> o = Observable.create(asyncProc)
+				.doOnTerminate(new OnTerminate(asyncProc))
+				.subscribeOn(scheduler);
 
 		// 結果が格納されるオブジェクトを返す
 		return new AsyncResult<>(o, queueLimit);
+	}
+
+	/**
+	 **********************************
+	 * parallel async executor.
+	 * <p>
+	 * multiple process async exxecute with default settings.<br>
+	 * <ul>
+	 * <li>result queue limit : no limit</li>
+	 * <li>execute thread scheduler : newThread</li>
+	 * <li>max concurrent process : {@value #DEFAULT_MAX_CONCURRENT}</li>
+	 * </ul>
+	 * @param <T> result type
+	 * @param asyncProcList		async process list
+	 * @return iterable process result
+	 **********************************
+	 */
+	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList) {
+		return execute(asyncProcList, DEFAULT_MAX_CONCURRENT);
+	}
+
+	/**
+	 **********************************
+	 * parallel async executor.
+	 * <p>
+	 * multiple process async exxecute with default settings.<br>
+	 * <ul>
+	 * <li>result queue limit : no limit</li>
+	 * <li>max concurrent process : {@value #DEFAULT_MAX_CONCURRENT}</li>
+	 * </ul>
+	 * @param <T> result type
+	 * @param asyncProcList		async process list
+	 * @param scheduler 		process execute scheduler
+	 * @return iterable process result
+	 **********************************
+	 */
+	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, Scheduler scheduler) {
+		return execute(asyncProcList, DEFAULT_MAX_CONCURRENT, -1, scheduler);
+	}
+
+	/**
+	 **********************************
+	 * parallel async executor.
+	 * <p>
+	 * multiple process async exxecute with default settings.<br>
+	 * <ul>
+	 * <li>result queue limit : no limit</li>
+	 * <li>execute thread scheduler : newThread</li>
+	 * </ul>
+	 * @param <T> result type
+	 * @param asyncProcList		async process list
+	 * @param maxConcurrent		max concurrent execute process
+	 * @return iterable process result
+	 **********************************
+	 */
+	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, int maxConcurrent) {
+		return execute(asyncProcList, maxConcurrent, -1);
+	}
+
+	/**
+	 **********************************
+	 * parallel async executor.
+	 * <p>
+	 * multiple process async exxecute with default settings.<br>
+	 * <ul>
+	 * <li>execute thread scheduler : newThread</li>
+	 * </ul>
+	 * @param <T> result type
+	 * @param asyncProcList		async process list
+	 * @param maxConcurrent		max concurrent execute process
+	 * @param queueLimit		limit result queue size
+	 * @return iterable process result
+	 **********************************
+	 */
+	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit) {
+		return execute(asyncProcList, maxConcurrent, queueLimit, Schedulers.io());
+	}
+
+	/**
+	 **********************************
+	 * parallel async executor.
+	 * <p>
+	 * @param <T> result type
+	 * @param asyncProcList		async process list
+	 * @param maxConcurrent		max concurrent execute process
+	 * @param queueLimit		limit result queue size
+	 * @param scheduler 		process execute scheduler
+	 * @return iterable process result
+	 **********************************
+	 */
+	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit, Scheduler scheduler) {
+
+		// create observable list
+		List<Observable<T>> list = new ArrayList<>();
+		for (AsyncProcess<T> asyncProc : asyncProcList) {
+			list.add(Observable.create(asyncProc)
+					.doOnTerminate(new OnTerminate(asyncProc))
+					.subscribeOn(scheduler)
+				);
+		}
+		Observable<T> o = Observable.merge(list, maxConcurrent);
+		//Observable<T> o = Observable.mergeDelayError(list, maxConcurrent);
+
+		// 結果が格納されるオブジェクトを返す
+		return new AsyncResult<>(o, queueLimit);
+	}
+
+	/**
+	 ********************************************
+	 *
+	 * @param <T> result type
+	 ********************************************
+	 */
+	private static class OnTerminate implements Action0 {
+
+		private AsyncProcess<?> process;
+
+		public OnTerminate(AsyncProcess<?> proc) {
+			process = proc;
+		}
+
+		/**
+		 * {@inheritDoc}
+		 */
+		@Override
+		public void call() {
+			process.postProcess();
+			logger.trace("call doOnTerminate()");
+		}
+	}
+
+	/**
+	 ********************************************
+	 * async executor builder
+	 ********************************************
+	 */
+	public static class Builder {
+		private int maxConcurrent = DEFAULT_MAX_CONCURRENT;
+		private int queueLimit = -1; // no limit
+		private Scheduler scheduler = Schedulers.newThread();
+
+		private Builder() {
+		}
+
+		/**
+		 ******************************
+		 * set process result queue limit.
+		 *
+		 * @param queueLimit	limit result queue size
+		 * @return this instance
+		 ******************************
+		 */
+		public Builder queueLimit(final int queueLimit) {
+			this.queueLimit = queueLimit > 0 ? queueLimit : 10;
+			return this;
+		}
+
+		/**
+		 ******************************
+		 * set process execute thread type(rx.Scheduler)
+		 *
+		 * @param scheduler process execute scheduler
+		 * @return this instance
+		 ******************************
+		 */
+		public Builder scheduler(final Scheduler scheduler) {
+			this.scheduler = scheduler;
+			return this;
+		}
+
+		/**
+		 ******************************
+		 * set execute process max parallel size.
+		 *
+		 * @param maxConcurrent		max concurrent execute process
+		 * @return this instance
+		 ******************************
+		 */
+		public Builder maxConcurrent(final int maxConcurrent) {
+			this.maxConcurrent = maxConcurrent > 0 ? maxConcurrent : DEFAULT_MAX_CONCURRENT;
+			return this;
+		}
+
+		/**
+		 ******************************
+		 * execute single process.
+		 *
+		 * @param <T> result type
+		 * @param proc async process
+		 * @return iterable process result
+		 ******************************
+		 */
+		public <T> AsyncResult<T> execute(AsyncProcess<T> proc) {
+			return AsyncExecutor.execute(proc, queueLimit, scheduler);
+		}
+
+		/**
+		 ******************************
+		 * execute multiple processes.
+		 *
+		 * @param <T> result type
+		 * @param proc async process list
+		 * @return iterable process result
+		 ******************************
+		 */
+		public <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> proc) {
+			return AsyncExecutor.execute(proc, maxConcurrent, queueLimit, scheduler);
+		}
 	}
 }

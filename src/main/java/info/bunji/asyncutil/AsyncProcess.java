@@ -15,8 +15,7 @@
  */
 package info.bunji.asyncutil;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.Iterator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,58 +24,43 @@ import rx.Observable.OnSubscribe;
 import rx.Subscriber;
 
 /**
- * 非同期に実行したい処理を実装するクラス.
- * <br>
- * getPartialResults()を実装し、データを部分的に返却することで、
- * 返却したデータから、順次呼び出し元に返却することが可能。<br>
- * getPartialResults()で明示的に終了とするまでは、切り返しメソッドが呼び出される。<br>
- * なお、この処理はデータベースのアクセスだけでなく、データを順次処理するものであれば
- * データ変換等にも利用可能である。
+ ************************************************
+ * AyncProcess base class.
  *
- * @param <T> 非同期処理の結果型
+ * @param <T> result type
  * @author f.kinoshita
+ ************************************************
  */
-public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
+public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 
+	/** logger */
 	protected Logger logger = LoggerFactory.getLogger(getClass());
 
-	protected Subscriber<? super List<T>> subscriber;
+	private Subscriber<? super T> subscriber;
 
-	/*
-	 **********************************
-	 *  (非 Javadoc)
-	 * @see rx.functions.Action1#call(java.lang.Object)
-	 **********************************
+	/**
+	 * {@inheritDoc}
 	 */
 	@Override
-	public final void call(Subscriber<? super List<T>> subscriber) {
+	public final void call(Subscriber<? super T> subscriber) {
 		this.subscriber = subscriber;
 		try {
-			logger.trace("start async process.");
-
-			/// 処理の実行
+			// execute process
 			execute();
 
-			// 正常終了時は、ここで終了を通知する、
-			if (!subscriber.isUnsubscribed()) {
-				subscriber.onCompleted();
-			}
+			// finish process
+			subscriber.onCompleted();
 		} catch (Throwable t) {
 			subscriber.onError(t);
-		} finally {
-			logger.trace("finish async process.");
-			postProcess();
 		}
 	}
 
 	/**
 	 **********************************
-	 * データの処理メソッド.
-	 *
-	 * ここで、データ全体の取得や変換等の実処理を行なう。<br>
-	 * 処理中に {@code append(T) } または　{@code append(List<T>) } を
-	 * 呼び出すことで、処理済の結果を呼び出し元で取得可能にする。<br>
-	 * 反映する単位が小さすぎるとオーバーヘッドが高くなるため、注意が必要。<br>
+	 * implements data processing.
+	 * <p>
+	 * data process and emit values in this method.<br>
+	 * if call {@code append(T)} or {@code append(List<T>)}, apply values to result.
 	 *
 	 * @throws Exception exception
 	 **********************************
@@ -85,61 +69,56 @@ public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
 
 	/**
 	 **********************************
-	 * 処理済の結果リストを呼び出し元に渡す.
+	 * emit values to AsyncResult.
 	 *
-	 * 処理実行後、引数のリストは空にされます。
+	 * remove values if emitted.
 	 *
-	 * @param list 追加する要素のリスト
+	 * @param values process result values
 	 **********************************
 	 */
-	protected final void append(List<T> list) {
-		if (subscriber == null) {
-			throw new IllegalStateException("before process execution.");
-		}
-		if (!subscriber.isUnsubscribed()) {
-			subscriber.onNext(list);
-			list.clear();
+	protected final void append(Iterable<T> values) {
+		if (values != null) {
+			Iterator<T> it = values.iterator();
+			while (it.hasNext()) {
+				append(it.next());
+				try {
+					it.remove();
+				} catch (UnsupportedOperationException e) {}
+			}
 		}
 	}
 
 	/**
 	 **********************************
-	 * 処理済の結果を呼び出し元に渡す.
+	 * emit value to AsyncResult.
 	 *
-	 * @param entity 単一の追加要素
+	 * @param value process result value
 	 **********************************
 	 */
-	protected final void append(T entity) {
+	protected final void append(T value) {
 		if (subscriber == null) {
-			throw new IllegalStateException("before process execution.");
+			throw new IllegalStateException("not executing process.");
 		}
-		if (!subscriber.isUnsubscribed()) {
-			subscriber.onNext(Arrays.asList(entity));
-		}
+		subscriber.onNext(value);
 	}
 
 	/**
 	 **********************************
-	 * 読込側で処理が中断されているかを返す.
+	 * returns true, if AsyncResult is interrupted.
 	 *
-	 * @return 中断されている場合はtrue、そうでない場合はfalseを返す。
+	 * @return true if AsyncResult is interrupted, otherwise false
 	 **********************************
 	 */
-	protected boolean isInterrupted() {
+	protected final boolean isInterrupted() {
 		return subscriber == null ? false: subscriber.isUnsubscribed();
 	}
 
 	/**
 	 **********************************
-	 * 処理終了時(完了/中断/エラー)に呼び出される処理.
-	 *
-	 * 必要に応じてリソースの開放等を行う。<br>
-	 * デフォルトは何も行いません。<br>
-	 * RessultSetのクローズなど、必要に応じて実装してください。<br>
-	 * なお、このメソッド内の例外は呼び出し元には通知されません。
+	 * call process finished(completed/close/exception).
 	 **********************************
 	 */
-	public void postProcess() {
+	protected void postProcess() {
 		logger.trace("call postProcess()");
 	}
 }

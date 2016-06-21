@@ -30,48 +30,28 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import rx.Observable;
-import rx.Scheduler;
 import rx.Subscriber;
+import rx.exceptions.Exceptions;
+import rx.functions.Action0;
 import rx.schedulers.Schedulers;
 
 /**
  ************************************************
- * 非同期処理の結果保持クラス.
- * <br>
- * Iterableを実装しているため、拡張for文での繰り返し処理が可能。<br>
- * ただし、非同期処理の結果であることから、メソッドの戻り値として
- * このクラスが返却された時点では、すべての結果が取得できている
- * 保証はありません。<br>
- * また注意点として、Iteratorから返却されたデータはこのクラス内から
- * 削除されるため、結果セットを繰り返し利用することはできません。<br>
- * （）
- * <br>
- * データの取得処理を中断したい場合(例外による中断も含む)は、
- * 明示的にclose()の呼び出す必要があります。
- * （え中断しない場合、データの取得は別スレッドで継続されます）
+ * aync execute result.
+ * <p>
+ * iterate access processed result.<br>
+ * return result to immidiate, after call {@code AsyncEXecutor.execute()}.<br>
  * <pre>
- * 実装例(try-with-resource利用時):
- * <code>
- * try (AsyncResults as = xxxxx.search(xxxx)) {
- *   for (T r : as) {
- *     // resultに対する処理を実装
- *   }
- * } // try節を抜ける際、正常/例外発生時ともに自動でclose()が呼び出される。
- * </code>
- * ※非同期処理は単体で利用すると性能が低下します。
- * したがって利用する際は注意が必要で、以下のようなケースに向いています。
- * ・大量のデータを扱う必要があり、メモリ上に全データを展開すると
- * 　問題がある場合（または件数が未知の場合）。
- * ・取得したデータを先頭から読み込むが、途中で中断することが想定される場合。
- * 　（ロジックにより必要なデータが見つかった場合に、以降のデータを破棄するケース）
+ * usage;(use try-with-resource):
  *
- *	 逆に、以下の様なケースには不向きです。
- * ・取得する件数が明らかに少ない場合（数百件程度なら同期処理が高速）
- * ・取得したデータを繰り返し利用したい場合
- * ・
+ * try (AsyncResults<String> as =AsyncExecutor.execute(new AsyncSearchProc())) {
+ *   for (String r : as) {
+ *     // process result.
+ *   }
+ * } // call close() on finally block.
  * </pre>
  * @author f.kinoshita
- * @param <T> 戻り値の型
+ * @param <T> result type
  ************************************************
  */
 public class AsyncResult<T> implements Iterable<T>, Closeable {
@@ -82,88 +62,96 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 	private CountDownLatch latch = new CountDownLatch(1);
 
-	private Subscriber<List<T>> subscriber;
+	private Subscriber<T> subscriber;
 
 	private Throwable throwable = null;
 
-
-	/**
-	 * コンストラクタ.
-	 * <br>
-	 * @param o 結果を生成するObservebleの実装クラス
-	 */
-	AsyncResult(Observable<List<T>> o, final int queueLimit) {
-		this(o, queueLimit, Schedulers.newThread());
-	}
-
 	/**
 	 ********************************************
-	 * コンストラクタ.
-	 *
 	 * @param o 結果を生成するObservebleの実装クラス
-	 * @param queueLimit 結果セットに蓄積できる最大件数
+	 * @param queueLimit	limit result queue size
 	 ********************************************
 	 */
-	AsyncResult(Observable<List<T>> o, final int queueLimit, Scheduler scheduler) {
+	AsyncResult(Observable<T> o, final int queueLimit) {
 
-		subscriber = new Subscriber<List<T>>() {
+		final long startTime = System.currentTimeMillis();
+
+		subscriber = new Subscriber<T>() {
+
+			/** processed item count */
+			private long processed = 0;
+
 			/*
 			 ************************************
-			 * 全データ取得完了時に呼び出されるメソッド.
-			 * @see rx.Observer#onCompleted()
+			 * {@inheritDoc}
 			 ************************************
 			 */
 			@Override
 			public void onCompleted() {
-				latch.countDown();
-				logger.trace("Load Completed.");
+				logger.trace("completed: " + processed + " items.");
 			}
 
 			/*
 			 ************************************
-			 * エラー発生時に呼び出されるメソッド.
-			 * @see rx.Observer#onError(java.lang.Throwable)
+			 * {@inheritDoc}
 			 ************************************
 			 */
 			@Override
 			public void onError(Throwable e) {
 				// 発生した例外を退避して処理を中断する
+				logger.trace("error occurred. " + e.getMessage(), e);
 				throwable = e;
-				latch.countDown();
 			}
 
 			/*
 			 ************************************
-			 * 取得結果の受取時に呼び出されるメソッド.
-			 * @see rx.Observer#onNext(java.lang.Object)
+			 * {@inheritDoc}
 			 ************************************
 			 */
 			@Override
-			public void onNext(List<T> t) {
-				// キューが一定サイズを超えたら処理を一旦停止する
+			public void onNext(T t) {
+				processed++;
+
+				// キューが指定サイズを超えている場合は処理を一旦停止する
 				if (queueLimit > 0) {
 					while (true) {
-						if (queueLimit > iterator.queue.size()) {
+						if (queueLimit > iterator.queue.size() || isUnsubscribed()) {
 							break;
 						}
-						logger.trace("waiting process. current queue=" + iterator.queue.size() + " limit=" + queueLimit);
+						logger.trace("waiting process. queue size(now:" + iterator.queue.size() + "/limit:" + queueLimit + ")");
 						try {
 							Thread.sleep(10);
-						} catch (Exception e) {}
+						} catch (InterruptedException e) {
+							// do nothing;
+						}
 					}
 				}
 				// queueに要素を追加
-				iterator.queue.addAll(t);
+				iterator.queue.add(t);
 			}
 		};
 
 		// 別スレッドで取得処理を開始する
-		o.subscribeOn(scheduler).subscribe(subscriber);
+		o.doOnSubscribe(new Action0() {
+			@Override
+			public void call() {
+				logger.trace("== start async process ==");
+			}
+		})
+		.doOnUnsubscribe(new Action0() {
+			@Override
+			public void call() {
+				latch.countDown();
+				logger.trace("== finish async process(" + (System.currentTimeMillis() - startTime) + "ms) ==");
+			}
+		})
+		.subscribeOn(Schedulers.newThread())
+		.subscribe(subscriber);
 	}
 
 	/*
 	 **********************************
-	 * @see java.lang.Iterable#iterator()
+	 * {@inheritDoc}
 	 **********************************
 	 */
 	@Override
@@ -173,8 +161,10 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 	/**
 	 **********************************
-	 * 処理を同期化し、終了後に結果を返す
-	 * @return 処理結果のリスト
+	 * synchronize process.
+	 * <p>
+	 * block async process and return when all process finished.
+	 * @return result list
 	 **********************************
 	 */
 	public List<T> block() {
@@ -185,69 +175,67 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 	/**
 	 **********************************
-	 * 結果セットのクローズ.<br>
-	 * <br>
-	 * 結果の取得が完了してない場合は、別スレッドで動作している
-	 * 取得処理を停止します。<br>
-	 * なお、取得処理が完了している場合は何も行わずに終了します。<br>
-	 *
-	 * @see java.io.Closeable#close()
+	 * close result.
+	 * <p>
+	 * if process running, interrupt async process(s).<br>
+	 * if process not running, this method has no effect.<br>
 	 ***********************************
 	 */
 	@Override
 	public void close() throws IOException {
 		// 処理が実行中の場合は中断する。
-		if (latch.getCount() > 0) {
-			iterator.queue.clear();
+		if (!subscriber.isUnsubscribed()) {
 			subscriber.unsubscribe();
-			latch.countDown();
+			//iterator.queue.clear();
 			logger.trace("process canceled.");
 		}
 	}
 
 	/**
 	 ********************************************
-	 * 非同期の処理結果を保持するイテレータ.
-	 * <br>
-	 * 処理結果は呼び出し側に返却した時点で、内部からは削除されます。<br>
+	 * Async result iterator.
+	 * <p>
+	 * remove value from result, if called {@code next()}
 	 * @param <E> result type
 	 ********************************************
 	 */
 	class AsyncIterator<E> implements Iterator<E> {
 
-		/** 結果を保持するキュー */
+		/** resultset queue */
 		private Queue<E> queue = new ConcurrentLinkedQueue<>();
+
+		private static final int NEXT_AWAIT_MS = 10;
 
 		/*
 		 ****************************************
-		 * @see java.util.Iterator#hasNext()
+		 * {@inheritDoc}
 		 ****************************************
 		 */
 		@Override
 		public boolean hasNext() {
-			try {
-				boolean ret;
-				boolean isLoaded = false;
-				do {
-					if (throwable != null) {
-						// 例外を検知したら、即座に中断
-						throw new RuntimeException(throwable);
-					}
-					ret = queue.isEmpty();
-					if (!ret || (ret && isLoaded)) break;
+			boolean ret = true;
+			boolean isLoaded = false;
+			while (true) {
+				if (throwable != null) {
+					// 例外を検知したら、即座に中断
+					Exceptions.propagate(throwable);
+				}
+				ret = queue.isEmpty();
+				if (!ret || (ret && isLoaded)) break;
 
+				try {
 					// 結果の取得が未完了かつ、返却結果がない場合は一定時間待つ
-					isLoaded = latch.await(10, TimeUnit.MILLISECONDS);
-				} while (true);
-				return !ret;
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
-			}
+					isLoaded = latch.await(NEXT_AWAIT_MS, TimeUnit.MILLISECONDS);
+				} catch (InterruptedException e) {
+					//Exceptions.propagate(e);
+				}
+			};
+			return !ret;
 		}
 
 		/*
 		 ****************************************
-		 * @see java.util.Iterator#next()
+		 * {@inheritDoc}
 		 ****************************************
 		 */
 		@Override
@@ -261,7 +249,7 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 		/*
 		 ****************************************
-		 * @see java.util.Iterator#remove()
+		 * {@inheritDoc}
 		 ****************************************
 		 */
 		@Override
