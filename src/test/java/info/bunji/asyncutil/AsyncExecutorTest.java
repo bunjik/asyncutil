@@ -6,63 +6,20 @@ package info.bunji.asyncutil;
 import static org.hamcrest.MatcherAssert.*;
 import static org.hamcrest.Matchers.*;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestName;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
  * @author f.kinoshita
  */
-public class AsyncExecutorTest {
+public class AsyncExecutorTest extends AsyncTestBase {
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
-
-	@Rule
-	public TestName name = new TestName();
-
-	@Before
-	public void setup() {
-		logger.info("=== start " + name.getMethodName() + "() ===");
-	}
-
-	@After
-	public void tearDown() {
-		logger.info("=== finish " + name.getMethodName() + "() ===");
-	}
-
-	class TestProcess extends AsyncProcess<String> {
-		private int size;
-
-		public TestProcess(int size) {
-			this.size = size;;
-		}
-
-		@Override
-		protected void execute() throws Exception {
-			int step = 10;
-			List<String> temp = new ArrayList<>();
-			for (int i = 0; i < size; i++) {
-				temp.add("" + i);
-				if (temp.size() == step) {
-					append(temp);
-				}
-				if (isInterrupted()) break;
-			}
-			if (!temp.isEmpty()) append(temp);
-		}
-	}
 
 	class TestProcessWithException extends AsyncProcess<String> {
 		@Override
@@ -80,7 +37,9 @@ public class AsyncExecutorTest {
 	class TestProcessWithException2 extends AsyncProcess<String> {
 
 		public TestProcessWithException2() {
-			isInterrupted();
+			//isInterrupted();
+			String nullStr = null;
+			nullStr.toString();
 
 			// occur IllegalStateException()
 			append("test");
@@ -104,20 +63,6 @@ public class AsyncExecutorTest {
 		@Override
 		protected void execute() throws Exception {
 			// do nothing.
-		}
-	}
-
-	class TestPostProcess extends AsyncProcess<String> {
-
-		@Override
-		protected void execute() throws Exception {
-			// do nothing.
-		}
-
-		@Override
-		public void postProcess() {
-			append("test");
-			append(Arrays.asList("test1", "test2"));
 		}
 	}
 
@@ -158,8 +103,8 @@ public class AsyncExecutorTest {
 	 */
 	@Test
 	public void testExecuteWithLimit() throws Exception {
-		int size = 500;
-		AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(size), 100);
+		int size = 200;
+		AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(size), 50);
 
 		int count = 0;
 		for (String s : results) {
@@ -168,6 +113,17 @@ public class AsyncExecutorTest {
 		}
 
 		assertThat(count, is(size));
+	}
+
+	@Test
+	public void testExecuteMulti() throws Exception {
+		try (AsyncResult<String> results =
+				AsyncExecutor.execute(new TestProcess2(AsyncExecutor.execute(new TestProcess(100))), 10)) {
+			for (String result : results) {
+				logger.debug(result);
+				Thread.sleep(2);
+			}
+		}
 	}
 
 	/**
@@ -196,17 +152,17 @@ public class AsyncExecutorTest {
 
 	@Test
 	public void testExecuteCancel() throws Exception {
-		int size = 500;
-		AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(size), 100);
+		int size = 3000;
+		AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(size), 99);
 
 		int count = 0;
 		for (String s : results) {
 			count++;
-			if (count > 300) {
+			if (count > 200) {
 				results.close();
 				break;
 			}
-			Thread.sleep(1);
+//			Thread.sleep(2);
 		}
 
 		assertThat(count, is(not(size)));
@@ -227,14 +183,14 @@ public class AsyncExecutorTest {
 		Assert.fail("not exception");
 	}
 
-	@Test(expected=IllegalStateException.class)
+	@Test(expected=Exception.class)
 	public void testExecuteException2() throws Exception {
 		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithException2())) {
 		}
 		Assert.fail("not exception");
 	}
 
-	@Test(expected=IllegalStateException.class)
+	@Test(expected=Exception.class)
 	public void testExecuteException3() throws Exception {
 		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithException3())) {
 		}
@@ -252,26 +208,4 @@ public class AsyncExecutorTest {
 		}
 		assertThat(count, is(100));
 	}
-
-	@Test
-	public void testExecutePost() throws Exception {
-		int count = 0;
-		try (AsyncResult<String> results = AsyncExecutor.execute(new TestPostProcess())) {
-			for (String s : results) {
-				count++;
-			}
-		}
-		assertThat(count, is(0));
-	}
-
-	@Test(expected=UnsupportedOperationException.class)
-	public void testRemoveException() throws Exception {
-		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(100))) {
-			Iterator<String> it = results.iterator();
-			it.next();
-			it.remove();
-		}
-	}
-
-
 }

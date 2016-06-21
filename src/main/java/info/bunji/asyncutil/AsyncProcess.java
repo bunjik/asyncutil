@@ -16,7 +16,7 @@
 package info.bunji.asyncutil;
 
 import java.util.Arrays;
-import java.util.List;
+import java.util.Collection;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,14 +33,14 @@ import rx.Subscriber;
  * なお、この処理はデータベースのアクセスだけでなく、データを順次処理するものであれば
  * データ変換等にも利用可能である。
  *
- * @param <T> 非同期処理の結果型
+ * @param <T> result data type
  * @author f.kinoshita
  */
-public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
+public abstract class AsyncProcess<T> implements OnSubscribe<Collection<T>> {
 
 	protected Logger logger = LoggerFactory.getLogger(getClass());
 
-	protected Subscriber<? super List<T>> subscriber;
+	protected Subscriber<? super Collection<T>> subscriber;
 
 	/*
 	 **********************************
@@ -49,23 +49,23 @@ public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
 	 **********************************
 	 */
 	@Override
-	public final void call(Subscriber<? super List<T>> subscriber) {
+	public final void call(Subscriber<? super Collection<T>> subscriber) {
 		this.subscriber = subscriber;
 		try {
-			logger.trace("start async process.");
-
-			/// 処理の実行
+			// execute process
 			execute();
 
-			// 正常終了時は、ここで終了を通知する、
-			if (!subscriber.isUnsubscribed()) {
-				subscriber.onCompleted();
-			}
 		} catch (Throwable t) {
 			subscriber.onError(t);
 		} finally {
-			logger.trace("finish async process.");
-			postProcess();
+			try {
+				postProcess();
+			} finally {
+				// 正常終了時は、ここで終了を通知する、
+				if (!subscriber.isUnsubscribed()) {
+					subscriber.onCompleted();
+				}
+			}
 		}
 	}
 
@@ -92,13 +92,15 @@ public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
 	 * @param list 追加する要素のリスト
 	 **********************************
 	 */
-	protected final void append(List<T> list) {
+	protected final void append(Collection<T> list) {
 		if (subscriber == null) {
-			throw new IllegalStateException("before process execution.");
+			throw new IllegalStateException("not executing process.");
 		}
-		if (!subscriber.isUnsubscribed()) {
+		if (list != null && !subscriber.isUnsubscribed()) {
 			subscriber.onNext(list);
-			list.clear();
+			try {
+				list.clear();
+			} catch (UnsupportedOperationException e) {}
 		}
 	}
 
@@ -110,12 +112,7 @@ public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
 	 **********************************
 	 */
 	protected final void append(T entity) {
-		if (subscriber == null) {
-			throw new IllegalStateException("before process execution.");
-		}
-		if (!subscriber.isUnsubscribed()) {
-			subscriber.onNext(Arrays.asList(entity));
-		}
+		append(Arrays.asList(entity));
 	}
 
 	/**
@@ -139,7 +136,7 @@ public abstract class AsyncProcess<T> implements OnSubscribe<List<T>> {
 	 * なお、このメソッド内の例外は呼び出し元には通知されません。
 	 **********************************
 	 */
-	public void postProcess() {
+	protected void postProcess() {
 		logger.trace("call postProcess()");
 	}
 }

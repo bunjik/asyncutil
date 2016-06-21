@@ -15,9 +15,11 @@
  */
 package info.bunji.asyncutil;
 
-import java.util.List;
+import java.util.Collection;
 
 import rx.Observable;
+import rx.Scheduler;
+import rx.schedulers.Schedulers;
 
 /**
  ************************************************
@@ -48,7 +50,7 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc) {
-		return execute(asyncProc, -1);
+		return execute(asyncProc, -1, Schedulers.newThread());
 	}
 
 	/**
@@ -69,10 +71,18 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc, int queueLimit) {
+		return execute(asyncProc, queueLimit, Schedulers.newThread());
+	}
+
+//	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc, Scheduler scheduler) {
+//		return execute(asyncProc, -1, scheduler);
+//	}
+
+	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc, int queueLimit, Scheduler scheduler) {
 		// 非同期処理の監視用オブジェクトの生成
-		Observable<List<T>> o = Observable.create(asyncProc);
+		Observable<Collection<T>> o = Observable.create(asyncProc);
 
 		// 結果が格納されるオブジェクトを返す
-		return new AsyncResult<>(o, queueLimit);
+		return new AsyncResult<>(o, queueLimit, scheduler);
 	}
 }

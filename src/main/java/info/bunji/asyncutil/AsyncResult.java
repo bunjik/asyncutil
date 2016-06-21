@@ -18,6 +18,7 @@ package info.bunji.asyncutil;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -32,7 +33,8 @@ import org.slf4j.LoggerFactory;
 import rx.Observable;
 import rx.Scheduler;
 import rx.Subscriber;
-import rx.schedulers.Schedulers;
+import rx.exceptions.Exceptions;
+import rx.functions.Action0;
 
 /**
  ************************************************
@@ -44,11 +46,10 @@ import rx.schedulers.Schedulers;
  * 保証はありません。<br>
  * また注意点として、Iteratorから返却されたデータはこのクラス内から
  * 削除されるため、結果セットを繰り返し利用することはできません。<br>
- * （）
  * <br>
  * データの取得処理を中断したい場合(例外による中断も含む)は、
  * 明示的にclose()の呼び出す必要があります。
- * （え中断しない場合、データの取得は別スレッドで継続されます）
+ * （中断しない場合、データの取得は別スレッドで継続されます）
  * <pre>
  * 実装例(try-with-resource利用時):
  * <code>
@@ -82,19 +83,9 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 	private CountDownLatch latch = new CountDownLatch(1);
 
-	private Subscriber<List<T>> subscriber;
+	private Subscriber<Collection<T>> subscriber;
 
 	private Throwable throwable = null;
-
-
-	/**
-	 * コンストラクタ.
-	 * <br>
-	 * @param o 結果を生成するObservebleの実装クラス
-	 */
-	AsyncResult(Observable<List<T>> o, final int queueLimit) {
-		this(o, queueLimit, Schedulers.newThread());
-	}
 
 	/**
 	 ********************************************
@@ -102,34 +93,36 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 	 *
 	 * @param o 結果を生成するObservebleの実装クラス
 	 * @param queueLimit 結果セットに蓄積できる最大件数
+	 * @param scheduler 処理を実行するスレッドのスケジューラ
 	 ********************************************
 	 */
-	AsyncResult(Observable<List<T>> o, final int queueLimit, Scheduler scheduler) {
+	AsyncResult(Observable<Collection<T>> o, final int queueLimit, Scheduler scheduler) {
 
-		subscriber = new Subscriber<List<T>>() {
+		subscriber = new Subscriber<Collection<T>>() {
+
+			/** processed item count */
+			private long processed = 0;
+
 			/*
 			 ************************************
-			 * 全データ取得完了時に呼び出されるメソッド.
 			 * @see rx.Observer#onCompleted()
 			 ************************************
 			 */
 			@Override
 			public void onCompleted() {
-				latch.countDown();
-				logger.trace("Load Completed.");
+				logger.trace("completed: " + processed + " items.");
 			}
 
 			/*
 			 ************************************
-			 * エラー発生時に呼び出されるメソッド.
 			 * @see rx.Observer#onError(java.lang.Throwable)
 			 ************************************
 			 */
 			@Override
 			public void onError(Throwable e) {
 				// 発生した例外を退避して処理を中断する
+				logger.trace("error occurred. " + e.getMessage(), e);
 				throwable = e;
-				latch.countDown();
 			}
 
 			/*
@@ -139,17 +132,21 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 			 ************************************
 			 */
 			@Override
-			public void onNext(List<T> t) {
-				// キューが一定サイズを超えたら処理を一旦停止する
+			public void onNext(Collection<T> t) {
+				processed += t.size();
+
+				// キューが指定サイズを超えている場合は処理を一旦停止する
 				if (queueLimit > 0) {
 					while (true) {
-						if (queueLimit > iterator.queue.size()) {
+						if (queueLimit > iterator.queue.size() || isUnsubscribed()) {
 							break;
 						}
-						logger.trace("waiting process. current queue=" + iterator.queue.size() + " limit=" + queueLimit);
+						logger.trace("waiting process. queue size(now:" + iterator.queue.size() + "/limit:" + queueLimit + ")");
 						try {
 							Thread.sleep(10);
-						} catch (Exception e) {}
+						} catch (InterruptedException e) {
+							// do nothing;
+						}
 					}
 				}
 				// queueに要素を追加
@@ -158,7 +155,21 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 		};
 
 		// 別スレッドで取得処理を開始する
-		o.subscribeOn(scheduler).subscribe(subscriber);
+		o.doOnSubscribe(new Action0() {
+			@Override
+			public void call() {
+				logger.trace("== start async process ==");
+			}
+		})
+		.doOnUnsubscribe(new Action0() {
+			@Override
+			public void call() {
+				latch.countDown();
+				logger.trace("== finish async process ==");
+			}
+		})
+		.subscribeOn(scheduler)
+		.subscribe(subscriber);
 	}
 
 	/*
@@ -188,8 +199,8 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 	 * 結果セットのクローズ.<br>
 	 * <br>
 	 * 結果の取得が完了してない場合は、別スレッドで動作している
-	 * 取得処理を停止します。<br>
-	 * なお、取得処理が完了している場合は何も行わずに終了します。<br>
+	 * 非同期処理を停止します。<br>
+	 * なお、処理停止後も処理済のデータについては取得可能です。<br>
 	 *
 	 * @see java.io.Closeable#close()
 	 ***********************************
@@ -197,10 +208,9 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 	@Override
 	public void close() throws IOException {
 		// 処理が実行中の場合は中断する。
-		if (latch.getCount() > 0) {
-			iterator.queue.clear();
+		if (!subscriber.isUnsubscribed()) {
 			subscriber.unsubscribe();
-			latch.countDown();
+			//iterator.queue.clear();
 			logger.trace("process canceled.");
 		}
 	}
@@ -215,8 +225,10 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 	 */
 	class AsyncIterator<E> implements Iterator<E> {
 
-		/** 結果を保持するキュー */
+		/** resultset queue */
 		private Queue<E> queue = new ConcurrentLinkedQueue<>();
+
+		private static final int NEXT_AWAIT_MS = 10;
 
 		/*
 		 ****************************************
@@ -225,24 +237,24 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 		 */
 		@Override
 		public boolean hasNext() {
-			try {
-				boolean ret;
-				boolean isLoaded = false;
-				do {
-					if (throwable != null) {
-						// 例外を検知したら、即座に中断
-						throw new RuntimeException(throwable);
-					}
-					ret = queue.isEmpty();
-					if (!ret || (ret && isLoaded)) break;
+			boolean ret = true;
+			boolean isLoaded = false;
+			while (true) {
+				if (throwable != null) {
+					// 例外を検知したら、即座に中断
+					Exceptions.propagate(throwable);
+				}
+				ret = queue.isEmpty();
+				if (!ret || (ret && isLoaded)) break;
 
+				try {
 					// 結果の取得が未完了かつ、返却結果がない場合は一定時間待つ
-					isLoaded = latch.await(10, TimeUnit.MILLISECONDS);
-				} while (true);
-				return !ret;
-			} catch (InterruptedException e) {
-				throw new RuntimeException(e);
-			}
+					isLoaded = latch.await(NEXT_AWAIT_MS, TimeUnit.MILLISECONDS);
+				} catch (InterruptedException e) {
+					//Exceptions.propagate(e);
+				}
+			};
+			return !ret;
 		}
 
 		/*
