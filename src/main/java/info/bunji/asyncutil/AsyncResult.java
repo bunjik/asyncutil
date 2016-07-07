@@ -196,6 +196,7 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 	 * Async result iterator.
 	 * <p>
 	 * remove value from result, if called {@code next()}
+
 	 * @param <E> result type
 	 ********************************************
 	 */
