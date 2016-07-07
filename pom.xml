@@ -3,8 +3,8 @@
 	<groupId>info.bunji</groupId>
 	<artifactId>asyncutil</artifactId>
 	<version>0.1.0-SNAPSHOT</version>
+	<url>http://bunjik.github.io/asyncutil/</url>
 
-	<url>https://github.com/bunjik/asyncutil</url>
 	<name>asyncutil</name>
 	<description>RxJava based asynchronous processing utility</description>
 
