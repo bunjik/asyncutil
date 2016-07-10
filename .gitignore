@@ -1,5 +1,11 @@
 *.class
 
+/release.properties
+/pom.xml.next
+/pom.xml.releaseBackup
+/pom.xml.tag
+
+
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
