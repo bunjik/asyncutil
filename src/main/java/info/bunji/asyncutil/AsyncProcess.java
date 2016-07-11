@@ -25,7 +25,7 @@ import rx.Subscriber;
 
 /**
  ************************************************
- * AyncProcess base class.
+ * aync process base class.
  *
  * @param <T> result type
  * @author f.kinoshita

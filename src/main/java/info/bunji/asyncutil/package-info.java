@@ -15,7 +15,7 @@
  */
 
 /**
- * rxJava based simplee async utility.
+ * rxJava based simple async utility.
  *
  * @author f.kinoshita
  */

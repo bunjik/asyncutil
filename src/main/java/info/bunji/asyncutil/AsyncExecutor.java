@@ -66,7 +66,9 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc) {
-		return execute(asyncProc, -1, Schedulers.newThread());
+//		return execute(asyncProc, -1, Schedulers.newThread());
+		return AsyncExecutor.builder()
+				.execute(asyncProc);
 	}
 
 	/**
@@ -84,7 +86,10 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc, int queueLimit) {
-		return execute(asyncProc, queueLimit, Schedulers.newThread());
+//		return execute(asyncProc, queueLimit, Schedulers.newThread());
+		return AsyncExecutor.builder()
+				.queueLimit(queueLimit)
+				.execute(asyncProc);
 	}
 
 	/**
@@ -102,7 +107,10 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc, Scheduler scheduler) {
-		return execute(asyncProc, -1, scheduler);
+//		return execute(asyncProc, -1, scheduler);
+		return AsyncExecutor.builder()
+				.scheduler(scheduler)
+				.execute(asyncProc);
 	}
 
 	/**
@@ -142,7 +150,8 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList) {
-		return execute(asyncProcList, DEFAULT_MAX_CONCURRENT);
+		//return execute(asyncProcList, DEFAULT_MAX_CONCURRENT);
+		return AsyncExecutor.builder().execute(asyncProcList);
 	}
 
 	/**
@@ -161,7 +170,11 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, Scheduler scheduler) {
-		return execute(asyncProcList, DEFAULT_MAX_CONCURRENT, -1, scheduler);
+//		return execute(asyncProcList, DEFAULT_MAX_CONCURRENT, -1, scheduler);
+		return AsyncExecutor.builder()
+					.scheduler(scheduler)
+					.execute(asyncProcList);
+
 	}
 
 	/**
@@ -180,7 +193,10 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, int maxConcurrent) {
-		return execute(asyncProcList, maxConcurrent, -1);
+//		return execute(asyncProcList, maxConcurrent, -1);
+		return AsyncExecutor.builder()
+					.maxConcurrent(maxConcurrent)
+					.execute(asyncProcList);
 	}
 
 	/**
@@ -199,7 +215,11 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit) {
-		return execute(asyncProcList, maxConcurrent, queueLimit, Schedulers.io());
+//		return execute(asyncProcList, maxConcurrent, queueLimit, Schedulers.io());
+		return AsyncExecutor.builder()
+				.maxConcurrent(maxConcurrent)
+				.queueLimit(queueLimit)
+				.execute(asyncProcList);
 	}
 
 	/**
@@ -215,6 +235,10 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit, Scheduler scheduler) {
+
+		if (maxConcurrent <= 0) {
+			throw new IllegalArgumentException("maxConcurrent need greater than 0.");
+		}
 
 		// create observable list
 		List<Observable<T>> list = new ArrayList<>();
@@ -271,13 +295,16 @@ public final class AsyncExecutor {
 		/**
 		 ******************************
 		 * set process result queue limit.
+		 * <p>
+		 * if limit size is less than 1, result queue is no limit.
 		 *
 		 * @param queueLimit	limit result queue size
 		 * @return this instance
 		 ******************************
 		 */
 		public Builder queueLimit(final int queueLimit) {
-			this.queueLimit = queueLimit > 0 ? queueLimit : 10;
+			//this.queueLimit = queueLimit > 0 ? queueLimit : 10;
+			this.queueLimit = queueLimit;
 			return this;
 		}
 
@@ -303,7 +330,8 @@ public final class AsyncExecutor {
 		 ******************************
 		 */
 		public Builder maxConcurrent(final int maxConcurrent) {
-			this.maxConcurrent = maxConcurrent > 0 ? maxConcurrent : DEFAULT_MAX_CONCURRENT;
+			//this.maxConcurrent = maxConcurrent > 0 ? maxConcurrent : DEFAULT_MAX_CONCURRENT;
+			this.maxConcurrent = maxConcurrent;
 			return this;
 		}
 
