@@ -149,7 +149,7 @@ public final class AsyncExecutor {
 	 * @return iterable process result
 	 **********************************
 	 */
-	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList) {
+	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList) {
 		//return execute(asyncProcList, DEFAULT_MAX_CONCURRENT);
 		return AsyncExecutor.builder().execute(asyncProcList);
 	}
@@ -169,7 +169,7 @@ public final class AsyncExecutor {
 	 * @return iterable process result
 	 **********************************
 	 */
-	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, Scheduler scheduler) {
+	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList, Scheduler scheduler) {
 //		return execute(asyncProcList, DEFAULT_MAX_CONCURRENT, -1, scheduler);
 		return AsyncExecutor.builder()
 					.scheduler(scheduler)
@@ -192,7 +192,7 @@ public final class AsyncExecutor {
 	 * @return iterable process result
 	 **********************************
 	 */
-	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, int maxConcurrent) {
+	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList, int maxConcurrent) {
 //		return execute(asyncProcList, maxConcurrent, -1);
 		return AsyncExecutor.builder()
 					.maxConcurrent(maxConcurrent)
@@ -214,7 +214,7 @@ public final class AsyncExecutor {
 	 * @return iterable process result
 	 **********************************
 	 */
-	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit) {
+	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit) {
 //		return execute(asyncProcList, maxConcurrent, queueLimit, Schedulers.io());
 		return AsyncExecutor.builder()
 				.maxConcurrent(maxConcurrent)
@@ -234,10 +234,10 @@ public final class AsyncExecutor {
 	 * @return iterable process result
 	 **********************************
 	 */
-	public static <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit, Scheduler scheduler) {
+	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit, Scheduler scheduler) {
 
 		if (maxConcurrent <= 0) {
-			throw new IllegalArgumentException("maxConcurrent need greater than 0.");
+			throw new IllegalArgumentException("maxConcurrent require greater than 0.(current:" + maxConcurrent +")");
 		}
 
 		// create observable list
@@ -290,6 +290,7 @@ public final class AsyncExecutor {
 		private Scheduler scheduler = Schedulers.newThread();
 
 		private Builder() {
+			// do nothing.
 		}
 
 		/**
@@ -357,7 +358,7 @@ public final class AsyncExecutor {
 		 * @return iterable process result
 		 ******************************
 		 */
-		public <T> AsyncResult<T> execute(Iterable<AsyncProcess<T>> proc) {
+		public <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> proc) {
 			return AsyncExecutor.execute(proc, maxConcurrent, queueLimit, scheduler);
 		}
 	}
