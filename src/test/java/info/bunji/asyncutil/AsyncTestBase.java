@@ -4,6 +4,7 @@
 package info.bunji.asyncutil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.After;
@@ -26,15 +27,15 @@ public abstract class AsyncTestBase {
 
 	@Before
 	public void setup() {
-		logger.info("=== test start " + name.getMethodName() + "() ===");
+		logger.info("■■■ test start " + name.getMethodName() + "() ■■■");
 	}
 
 	@After
 	public void tearDown() {
-		logger.info("=== test finish " + name.getMethodName() + "() ===");
+		logger.info("■■■ test finish " + name.getMethodName() + "() ■■■");
 	}
 
-	class TestProcess extends AsyncProcess<String> {
+	static class TestProcess extends AsyncProcess<String> {
 		private int size;
 
 		public TestProcess(int size) {
@@ -56,7 +57,7 @@ public abstract class AsyncTestBase {
 		}
 	}
 
-	class TestProcessInt extends AsyncProcess<Integer> {
+	static class TestProcessInt extends AsyncProcess<Integer> {
 		private int size;
 
 		public TestProcessInt(int size) {
@@ -79,7 +80,7 @@ public abstract class AsyncTestBase {
 	}
 
 
-	class TestProcess2 extends AsyncProcess<String> {
+	static class TestProcess2 extends AsyncProcess<String> {
 
 		private Iterable<String> it;
 
@@ -102,7 +103,7 @@ public abstract class AsyncTestBase {
 		}
 	}
 
-	class TestProcessWithWait extends AsyncProcess<String> {
+	static class TestProcessWithWait extends AsyncProcess<String> {
 
 		private int size;
 
@@ -124,7 +125,7 @@ public abstract class AsyncTestBase {
 		}
 	}
 
-	class TestProcessWithException extends AsyncProcess<String> {
+	static class TestProcessWithException extends AsyncProcess<String> {
 		@Override
 		protected void execute() throws Exception {
 			for (int i = 0; i < 1000; i++) {
@@ -134,6 +135,39 @@ public abstract class AsyncTestBase {
 				}
 				if (isInterrupted()) break;
 			}
+		}
+	}
+
+	static class TestProcessWithException2 extends AsyncProcess<String> {
+
+		@SuppressWarnings("null")
+		public TestProcessWithException2() {
+			//isInterrupted();
+			String nullStr = null;
+			nullStr.toString();
+
+			// occur IllegalStateException()
+			append("test");
+		}
+
+		@Override
+		protected void execute() throws Exception {
+			// do nothing.
+		}
+	}
+
+	static class TestProcessWithException3 extends AsyncProcess<String> {
+
+		public TestProcessWithException3() {
+			isInterrupted();
+
+			// occur IllegalStateException()
+			append(Arrays.asList("test1", "test2"));
+		}
+
+		@Override
+		protected void execute() throws Exception {
+			// do nothing.
 		}
 	}
 }

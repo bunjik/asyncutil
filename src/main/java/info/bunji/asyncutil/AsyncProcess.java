@@ -121,4 +121,15 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	protected void postProcess() {
 		logger.trace("call postProcess()");
 	}
+
+	private Boolean isFinished = false;
+
+	protected final void doPostProcess() {
+		synchronized(isFinished) {
+			if (!isFinished) {
+				isFinished = true;
+				postProcess();
+			}
+		}
+	}
 }

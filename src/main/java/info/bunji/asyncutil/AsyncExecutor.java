@@ -127,7 +127,7 @@ public final class AsyncExecutor {
 	public static <T> AsyncResult<T> execute(final AsyncProcess<T> asyncProc, int queueLimit, Scheduler scheduler) {
 		// 非同期処理の監視用オブジェクトの生成
 		Observable<T> o = Observable.create(asyncProc)
-				.doOnTerminate(new OnTerminate(asyncProc))
+				.doOnTerminate(new doPostProcess(asyncProc))
 				.subscribeOn(scheduler);
 
 		// 結果が格納されるオブジェクトを返す
@@ -234,9 +234,15 @@ public final class AsyncExecutor {
 	 * @return iterable process result
 	 **********************************
 	 */
-	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit, Scheduler scheduler) {
+	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList,
+												int maxConcurrent, int queueLimit, Scheduler scheduler) {
 
 		if (maxConcurrent <= 0) {
+			for (AsyncProcess<T> asyncProc : asyncProcList) {
+				try {
+					asyncProc.postProcess();
+				} catch (Exception e) {}
+			}
 			throw new IllegalArgumentException("maxConcurrent require greater than 0.(current:" + maxConcurrent +")");
 		}
 
@@ -244,12 +250,17 @@ public final class AsyncExecutor {
 		List<Observable<T>> list = new ArrayList<>();
 		for (AsyncProcess<T> asyncProc : asyncProcList) {
 			list.add(Observable.create(asyncProc)
-					.doOnTerminate(new OnTerminate(asyncProc))
+//					.doOnUnsubscribe(new doPostProcess(asyncProc))
+					.doOnTerminate(new doPostProcess(asyncProc))
 					.subscribeOn(scheduler)
 				);
 		}
-		Observable<T> o = Observable.merge(list, maxConcurrent);
+
 		//Observable<T> o = Observable.mergeDelayError(list, maxConcurrent);
+		Observable<T> o = Observable.merge(list, maxConcurrent)
+				.doOnUnsubscribe(new doPostProcess(asyncProcList))
+		.subscribeOn(scheduler);
+
 
 		// 結果が格納されるオブジェクトを返す
 		return new AsyncResult<>(o, queueLimit);
@@ -261,12 +272,18 @@ public final class AsyncExecutor {
 	 * @param <T> result type
 	 ********************************************
 	 */
-	private static class OnTerminate implements Action0 {
+	private static class doPostProcess implements Action0 {
 
-		private AsyncProcess<?> process;
+		private List<AsyncProcess<?>> processList = new ArrayList<>();
 
-		public OnTerminate(AsyncProcess<?> proc) {
-			process = proc;
+		public doPostProcess(AsyncProcess<?> proc) {
+			processList.add(proc);
+		}
+
+		public doPostProcess(Iterable<? extends AsyncProcess<?>> procList) {
+			for (AsyncProcess<?> proc : procList) {
+				processList.add(proc);
+			}
 		}
 
 		/**
@@ -274,8 +291,9 @@ public final class AsyncExecutor {
 		 */
 		@Override
 		public void call() {
-			process.postProcess();
-			logger.trace("call doOnTerminate()");
+			for (AsyncProcess<?> process : processList) {
+				process.doPostProcess();
+			}
 		}
 	}
 
