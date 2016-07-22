@@ -18,6 +18,7 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
+import info.bunji.asyncutil.processes.StringProcess1;
 import rx.Subscriber;
 
 /**
@@ -248,13 +249,12 @@ public class AsyncProcessTest extends AsyncTestBase {
 	 */
 	@Test
 	public void testPostProcess() throws Exception {
-		TestAsyncProcess asyncProc = spy(new TestAsyncProcess(Arrays.asList("item1")));
+		StringProcess1 asyncProc = spy(new StringProcess1(1));
 		try (AsyncResult<String> asyncResult = AsyncExecutor.execute(asyncProc)) {
 			List<String> result = asyncResult.block();
 
 			assertThat(result.size(), is(1));
-			verify(asyncProc, times(1)).execute();
-			verify(asyncProc, times(1)).postProcess();
 		}
+		verify(asyncProc, times(1)).postProcess();
 	}
 }
