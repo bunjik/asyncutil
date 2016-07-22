@@ -16,10 +16,8 @@
 package info.bunji.asyncutil;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import rx.Observable;
 import rx.Scheduler;
@@ -35,7 +33,7 @@ import rx.schedulers.Schedulers;
  */
 public final class AsyncExecutor {
 
-	private static Logger logger = LoggerFactory.getLogger(AsyncExecutor.class);
+	//private static Logger logger = LoggerFactory.getLogger(AsyncExecutor.class);
 
 	private static final int DEFAULT_MAX_CONCURRENT = 10;
 
@@ -66,7 +64,6 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc) {
-//		return execute(asyncProc, -1, Schedulers.newThread());
 		return AsyncExecutor.builder()
 				.execute(asyncProc);
 	}
@@ -86,7 +83,6 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc, int queueLimit) {
-//		return execute(asyncProc, queueLimit, Schedulers.newThread());
 		return AsyncExecutor.builder()
 				.queueLimit(queueLimit)
 				.execute(asyncProc);
@@ -107,7 +103,6 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(AsyncProcess<T> asyncProc, Scheduler scheduler) {
-//		return execute(asyncProc, -1, scheduler);
 		return AsyncExecutor.builder()
 				.scheduler(scheduler)
 				.execute(asyncProc);
@@ -128,6 +123,7 @@ public final class AsyncExecutor {
 		// 非同期処理の監視用オブジェクトの生成
 		Observable<T> o = Observable.create(asyncProc)
 				.doOnTerminate(new doPostProcess(asyncProc))
+//				.doOnUnsubscribe(new doPostProcess(asyncProc))
 				.subscribeOn(scheduler);
 
 		// 結果が格納されるオブジェクトを返す
@@ -150,8 +146,8 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList) {
-		//return execute(asyncProcList, DEFAULT_MAX_CONCURRENT);
-		return AsyncExecutor.builder().execute(asyncProcList);
+		return AsyncExecutor.builder()
+						.execute(asyncProcList);
 	}
 
 	/**
@@ -170,11 +166,9 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList, Scheduler scheduler) {
-//		return execute(asyncProcList, DEFAULT_MAX_CONCURRENT, -1, scheduler);
 		return AsyncExecutor.builder()
 					.scheduler(scheduler)
 					.execute(asyncProcList);
-
 	}
 
 	/**
@@ -193,7 +187,6 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList, int maxConcurrent) {
-//		return execute(asyncProcList, maxConcurrent, -1);
 		return AsyncExecutor.builder()
 					.maxConcurrent(maxConcurrent)
 					.execute(asyncProcList);
@@ -215,7 +208,6 @@ public final class AsyncExecutor {
 	 **********************************
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList, int maxConcurrent, int queueLimit) {
-//		return execute(asyncProcList, maxConcurrent, queueLimit, Schedulers.io());
 		return AsyncExecutor.builder()
 				.maxConcurrent(maxConcurrent)
 				.queueLimit(queueLimit)
@@ -236,8 +228,8 @@ public final class AsyncExecutor {
 	 */
 	public static <T> AsyncResult<T> execute(Iterable<? extends AsyncProcess<T>> asyncProcList,
 												int maxConcurrent, int queueLimit, Scheduler scheduler) {
-
 		if (maxConcurrent <= 0) {
+			// interrupt process
 			for (AsyncProcess<T> asyncProc : asyncProcList) {
 				try {
 					asyncProc.postProcess();
@@ -250,8 +242,7 @@ public final class AsyncExecutor {
 		List<Observable<T>> list = new ArrayList<>();
 		for (AsyncProcess<T> asyncProc : asyncProcList) {
 			list.add(Observable.create(asyncProc)
-//					.doOnUnsubscribe(new doPostProcess(asyncProc))
-					.doOnTerminate(new doPostProcess(asyncProc))
+					.doOnUnsubscribe(new doPostProcess(asyncProc))
 					.subscribeOn(scheduler)
 				);
 		}
@@ -259,8 +250,7 @@ public final class AsyncExecutor {
 		//Observable<T> o = Observable.mergeDelayError(list, maxConcurrent);
 		Observable<T> o = Observable.merge(list, maxConcurrent)
 				.doOnUnsubscribe(new doPostProcess(asyncProcList))
-		.subscribeOn(scheduler);
-
+				.subscribeOn(scheduler);
 
 		// 結果が格納されるオブジェクトを返す
 		return new AsyncResult<>(o, queueLimit);
@@ -364,7 +354,8 @@ public final class AsyncExecutor {
 		 ******************************
 		 */
 		public <T> AsyncResult<T> execute(AsyncProcess<T> proc) {
-			return AsyncExecutor.execute(proc, queueLimit, scheduler);
+//			return AsyncExecutor.execute(proc, queueLimit, scheduler);
+			return execute(Arrays.asList(proc));
 		}
 
 		/**

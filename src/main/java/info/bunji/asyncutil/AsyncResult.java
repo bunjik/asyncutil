@@ -62,7 +62,7 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 
 	private CountDownLatch latch = new CountDownLatch(1);
 
-	private Subscriber<T> subscriber;
+	private final Subscriber<T> subscriber;
 
 	private Throwable throwable = null;
 
@@ -200,7 +200,7 @@ public class AsyncResult<T> implements Iterable<T>, Closeable {
 	 * @param <E> result type
 	 ********************************************
 	 */
-	class AsyncIterator<E> implements Iterator<E> {
+	private class AsyncIterator<E> implements Iterator<E> {
 
 		/** resultset queue */
 		private Queue<E> queue = new ConcurrentLinkedQueue<>();

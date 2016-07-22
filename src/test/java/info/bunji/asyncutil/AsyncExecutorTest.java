@@ -16,13 +16,9 @@
 package info.bunji.asyncutil;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.greaterThan;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.hamcrest.Matchers.lessThan;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.hamcrest.MatcherAssert.*;
+import static org.hamcrest.Matchers.*;
+import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -64,9 +60,10 @@ public class AsyncExecutorTest extends AsyncTestBase {
 	 */
 	@Test
 	public void testExecuteCancel() throws IOException {
-		int size = 100;
+		int size = 500;
 		int interruptCnt = 50;
-		StringProcess1 proc1 = spy(new StringProcess1(size, 3L));
+		StringProcess1 proc1 = spy(new StringProcess1(size, 1L));
+		//StringProcess1 proc1 = spy(new StringProcess1(size));
 
 		int count = 0;
 		try (AsyncResult<String> results = AsyncExecutor.execute(proc1)) {
@@ -77,6 +74,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 					results.close();
 				}
 			}
+		} catch (Exception e) {
+			logger.debug("exception ", e);
 		} finally {
 			verify(proc1, times(1)).postProcess();
 		}

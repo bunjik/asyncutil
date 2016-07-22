@@ -73,16 +73,19 @@ public class StringProcess1 extends AsyncProcess<String> {
 				try {
 					Thread.sleep(intervral);
 				} catch (InterruptedException e) {
-					// do nothing.
+					// process canceled.
+					break;
 				}
 			}
 			if (errThrowCnt == i) {
 				throw new Exception("Test Eception Occurred.");
 			}
-String msg = prefix + "-" + i;
-logger.debug(msg);
+//			if (isInterrupted()) break;
+
+//			String msg = prefix + "-" + i + " isFinished=" + isFinished;
+//			String msg = prefix + "-" + i;
+//			logger.debug(msg);
 			append(prefix + "-" + i);
-			if (isInterrupted()) break;
 		}
 	}
 }

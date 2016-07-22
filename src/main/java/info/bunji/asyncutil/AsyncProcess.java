@@ -38,8 +38,13 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 
 	private Subscriber<? super T> subscriber;
 
+	private Boolean isFinished = false;
+//	protected Boolean isFinished = false;
+
 	/**
+	 **********************************
 	 * {@inheritDoc}
+	 **********************************
 	 */
 	@Override
 	public final void call(Subscriber<? super T> subscriber) {
@@ -49,9 +54,16 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 			execute();
 
 			// finish process
-			subscriber.onCompleted();
+			this.subscriber.onCompleted();
+//		} catch (ProcessCanceledException t) {
+//			// do nothing.
 		} catch (Throwable t) {
-			subscriber.onError(t);
+			for (Throwable e : t.getSuppressed()) {
+				if (e instanceof ProcessCanceledException) {
+					return;
+				}
+			}
+			this.subscriber.onError(t);
 		}
 	}
 
@@ -96,8 +108,8 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 **********************************
 	 */
 	protected final void append(T value) {
-		if (subscriber == null) {
-			throw new IllegalStateException("not executing process.");
+		if (subscriber == null || isInterrupted()) {
+			throw new ProcessCanceledException("process canceled.");
 		}
 		subscriber.onNext(value);
 	}
@@ -110,6 +122,7 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 **********************************
 	 */
 	protected final boolean isInterrupted() {
+		if (isFinished) return true;
 		return subscriber == null ? false: subscriber.isUnsubscribed();
 	}
 
@@ -122,12 +135,15 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 		logger.trace("call postProcess()");
 	}
 
-	private Boolean isFinished = false;
-
-	protected final void doPostProcess() {
+	/**
+	 **********************************
+	 *
+	 **********************************
+	 */
+	final void doPostProcess() {
 		synchronized(isFinished) {
 			if (!isFinished) {
-				isFinished = true;
+				isFinished = Boolean.TRUE;
 				postProcess();
 			}
 		}

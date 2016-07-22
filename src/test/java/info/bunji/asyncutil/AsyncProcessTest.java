@@ -136,7 +136,7 @@ public class AsyncProcessTest extends AsyncTestBase {
 	 * {@link info.bunji.asyncutil.AsyncProcess#append(java.util.Collection)} のためのテスト・メソッド。
 	 **********************************
 	 */
-	@Test(expected=IllegalStateException.class)
+	@Test(expected=ProcessCanceledException.class)
 	public void testAppendCollectionOfT2() throws Exception {
 		TestAsyncProcess asyncProc = spy(new TestAsyncProcess());
 
@@ -148,7 +148,7 @@ public class AsyncProcessTest extends AsyncTestBase {
 	 * {@link info.bunji.asyncutil.AsyncProcess#append(java.util.Collection)} のためのテスト・メソッド。
 	 **********************************
 	 */
-	@Test
+	@Test(expected=ProcessCanceledException.class)
 	public void testAppendCollectionOfT3() throws Exception {
 		TestAsyncProcess asyncProc = new TestAsyncProcess();
 
@@ -161,9 +161,6 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 		List<String> items = new ArrayList<>(Arrays.asList("item1", "item2"));
 		asyncProc.append(items);
-
-		// list not appended.
-		assertThat(items.size(), is(0));
 	}
 
 	/**
@@ -211,7 +208,7 @@ public class AsyncProcessTest extends AsyncTestBase {
 	 * {@link info.bunji.asyncutil.AsyncProcess#append(java.lang.Object)} のためのテスト・メソッド。
 	 **********************************
 	 */
-	@Test(expected=IllegalStateException.class)
+	@Test(expected=ProcessCanceledException.class)
 	public void testAppendT2() throws Exception {
 		TestAsyncProcess asyncProc = spy(new TestAsyncProcess());
 
