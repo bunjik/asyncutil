@@ -67,15 +67,14 @@ public class AsyncProcessTest extends AsyncTestBase {
 	 */
 	@Test
 	public void testCall() throws Exception {
-		TestAsyncProcess asyncProc = PowerMockito.spy(new TestAsyncProcess(Arrays.asList("item1", "item2")));
+		StringProcess1 asyncProc = PowerMockito.spy(new StringProcess1(2));
 
 		try (AsyncResult<String> result = AsyncExecutor.execute(asyncProc)) {
 			List<String> resultList = result.block();
 
 			assertThat(resultList.size(), is(2));
-			verify(asyncProc, times(1)).execute();
-			verify(asyncProc, times(1)).postProcess();
 		}
+		verify(asyncProc, times(1)).postProcess();
 	}
 
 	/**
