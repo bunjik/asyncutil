@@ -26,8 +26,6 @@ import java.util.List;
 
 import org.junit.Test;
 
-import info.bunji.asyncutil.processes.StringProcess1;
-import info.bunji.asyncutil.processes.StringProcess2;
 import rx.schedulers.Schedulers;
 
 

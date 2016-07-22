@@ -1,7 +1,7 @@
 /**
  *
  */
-package info.bunji.asyncutil.processes;
+package info.bunji.asyncutil;
 
 import info.bunji.asyncutil.AsyncProcess;
 
