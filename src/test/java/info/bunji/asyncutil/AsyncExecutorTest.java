@@ -36,6 +36,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test execute default setting.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testExecuteDefault() throws IOException {
@@ -55,6 +57,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test exectute cancel.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testExecuteCancel() throws IOException {
@@ -83,6 +87,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test execute with scheduler.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testExecuteWithScheduler() throws IOException {
@@ -102,6 +108,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test execute with queueLimit.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testExecuteWithQueueLimit() throws IOException {
@@ -122,6 +130,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test parallel execute default setting.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testParallelExecuteDefault() throws IOException {
@@ -143,6 +153,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test parallel exectute cancel.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testParallelExecuteCancel() throws IOException {
@@ -170,6 +182,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test parallel exectute cancel.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testParallelExecuteCancel2() throws IOException {
@@ -197,6 +211,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test parallel execute with Scheduler.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testParallelExecuteWithScheduler() throws IOException {
@@ -218,6 +234,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test parallel execute with maxConcurrent.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testParallelExecuteWithMaxConcurrent() throws IOException {
@@ -251,6 +269,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test parallel execute with maxConcurrent.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testParallelExecuteWithMaxConcurrent2() throws IOException {
@@ -284,6 +304,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test parallel execute with maxConcurrent.(nagative value)
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test(expected=IllegalArgumentException.class)
 	public void testParallelExecuteWithMaxConcurrent3() throws IOException {
@@ -304,6 +326,8 @@ public class AsyncExecutorTest extends AsyncTestBase {
 
 	/**
 	 * test parallel execute with queueLimit.
+	 *
+	 * @throws IOException if an I/O error occurs
 	 */
 	@Test
 	public void testParallelExecuteWithQueueLimit() throws IOException {
@@ -324,29 +348,7 @@ public class AsyncExecutorTest extends AsyncTestBase {
 		assertThat(count, is(size * 2));
 	}
 
-//	/**
-//	 *
-//	 * @throws IOException
-//	 */
-//	@Test
-//	public void testExecuteCancel()throws IOException {
-//		int size = 100;
-//		int count = 0;
-//		int cancelCnt = 10;
-//		StringProcess proc = new StringProcess(size, 5L);
-//		try (AsyncResult<String> results = AsyncExecutor.execute(proc)) {
-//			for (@SuppressWarnings("unused") String s : results) {
-//				count++;
-//				if (count == cancelCnt) {
-//					//break;
-//					results.close();
-//				}
-//			}
-//		}
-//
-//		assertThat(count, greaterThanOrEqualTo(cancelCnt));
-//		assertThat(count, lessThan(size));
-//	}
+
 
 //	@Test
 //	public void testExecuteWithSchedulerAndCancel()throws IOException {
@@ -361,39 +363,7 @@ public class AsyncExecutorTest extends AsyncTestBase {
 //		}
 //		assertThat(count, is(not(size)));
 //	}
-//
-//	/**
-//	 * {@link info.bunji.asyncutil.AsyncExecutor#execute(info.bunji.asyncutil.AsyncProcess)} のためのテスト・メソッド。
-//	 */
-//	@Test
-//	public void testExecuteNoLimit() {
-//		int size = 500;
-//		AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(size));
-//
-//		int count = 0;
-//
-//		for (@SuppressWarnings("unused") String s : results) count++;
-//
-//		assertThat(count, is(size));
-//	}
-//
-//	/**
-//	 * {@link info.bunji.asyncutil.AsyncExecutor#execute(info.bunji.asyncutil.AsyncProcess, int)} のためのテスト・メソッド。
-//	 */
-//	@Test
-//	public void testExecuteWithLimit() throws Exception {
-//		int size = 200;
-//		AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(size), 50);
-//
-//		int count = 0;
-//		for (@SuppressWarnings("unused") String s : results) {
-//			count++;
-//			Thread.sleep(1);
-//		}
-//
-//		assertThat(count, is(size));
-//	}
-//
+
 //	@Test
 //	public void testExecuteMulti() throws Exception {
 //		try (AsyncResult<String> results =
@@ -403,63 +373,6 @@ public class AsyncExecutorTest extends AsyncTestBase {
 //				Thread.sleep(2);
 //			}
 //		}
-//	}
-//
-//	/**
-//	 * {@link info.bunji.asyncutil.AsyncExecutor#execute(info.bunji.asyncutil.AsyncProcess, int)} のためのテスト・メソッド。
-//	 */
-//	@Test
-//	public void testExecuteBlocking() throws Exception {
-//		int size = 500;
-//		List<String> listResult = null;
-//		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(size))) {
-//			listResult = results.block();
-//		}
-//
-//		assertThat(listResult.size(), is(size));
-//	}
-//
-//	@Test(expected=NoSuchElementException.class)
-//	public void testHasNext() throws Exception {
-//		int size = 500;
-//		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(size))) {
-//			results.block();
-//			Iterator<String> it = results.iterator();
-//			it.next();
-//		}
-//	}
-//
-//	@Test
-//	public void testExecuteCancel() throws Exception {
-//		int size = 3000;
-//		AsyncResult<String> results = AsyncExecutor.execute(new TestProcess(size), 99);
-//
-//		int count = 0;
-//		for (@SuppressWarnings("unused") String s : results) {
-//			count++;
-//			if (count > 200) {
-//				results.close();
-//				break;
-//			}
-////			Thread.sleep(2);
-//		}
-//
-//		assertThat(count, is(not(size)));
-//	}
-//
-//	@Test
-//	public void testExecuteException() throws Exception {
-//		int count = 0;
-//		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithException())) {
-//			for (@SuppressWarnings("unused") String s : results) {
-//				count++;
-//				Thread.sleep(1);
-//			}
-//		} catch (Exception e) {
-//			assertThat(count, is(not(1000)));
-//			return;
-//		}
-//		Assert.fail("not exception");
 //	}
 //
 //	@Test(expected=Exception.class)

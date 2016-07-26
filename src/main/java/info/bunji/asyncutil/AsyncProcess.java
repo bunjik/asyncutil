@@ -38,8 +38,9 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 
 	private Subscriber<? super T> subscriber;
 
-	private Boolean isFinished = false;
-//	protected Boolean isFinished = false;
+	private Object lock = new Object();
+
+	private boolean isFinished = false;
 
 	/**
 	 **********************************
@@ -141,9 +142,9 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 **********************************
 	 */
 	final void doPostProcess() {
-		synchronized(isFinished) {
+		synchronized(lock) {
 			if (!isFinished) {
-				isFinished = Boolean.TRUE;
+				isFinished = true;
 				postProcess();
 			}
 		}

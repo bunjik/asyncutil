@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.*;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -56,11 +57,11 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#call(rx.Subscriber)} のためのテスト・メソッド。
+ 	 * @throws IOException if an I/O error occurs
 	 **********************************
 	 */
 	@Test
-	public void testCall() throws Exception {
+	public void testCall() throws IOException {
 		StringProcess1 asyncProc = PowerMockito.spy(new StringProcess1(2));
 
 		try (AsyncResult<String> result = AsyncExecutor.execute(asyncProc)) {
@@ -73,23 +74,24 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#execute()} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
 	public void testExecute() throws Exception {
-		TestAsyncProcess asyncProc = spy(new TestAsyncProcess(Arrays.asList("item1")));
+		int size = 1;
+		StringProcess1 asyncProc = spy(new StringProcess1(size));
 
 		List<String> result = AsyncExecutor.execute(asyncProc).block();
 
-		assertThat(result.size(), is(1));
+		assertThat(result.size(), is(size));
 		verify(asyncProc, times(1)).execute();
 		verify(asyncProc, times(1)).postProcess();
 	}
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#execute()} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
@@ -111,7 +113,7 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#append(java.util.Collection)} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
@@ -127,7 +129,7 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#append(java.util.Collection)} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test(expected=ProcessCanceledException.class)
@@ -139,7 +141,7 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#append(java.util.Collection)} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test(expected=ProcessCanceledException.class)
@@ -159,7 +161,7 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#append(java.util.Collection)} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
@@ -183,27 +185,26 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#append(java.lang.Object)} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
 	public void testAppendT() throws Exception {
-		TestAsyncProcess asyncProc = spy(new TestAsyncProcess(Arrays.asList("item1")));
-
-		List<String> result = AsyncExecutor.execute(asyncProc).block();
-
-		assertThat(result.size(), is(1));
+		StringProcess1 asyncProc = spy(new StringProcess1(1));
+		try (AsyncResult<String> result = AsyncExecutor.execute(asyncProc)) {
+			List<String> list = result.block();
+			assertThat(list.size(), is(1));
+		}
 		verify(asyncProc, times(1)).execute();
 		verify(asyncProc, times(1)).postProcess();
 	}
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#append(java.lang.Object)} のためのテスト・メソッド。
 	 **********************************
 	 */
 	@Test(expected=ProcessCanceledException.class)
-	public void testAppendT2() throws Exception {
+	public void testAppendT2() {
 		TestAsyncProcess asyncProc = spy(new TestAsyncProcess());
 
 		asyncProc.append("item1");
@@ -211,12 +212,11 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#isInterrupted()} のためのテスト・メソッド。
 	 **********************************
 	 */
 	@Test
 	public void testIsInterrupted() {
-		TestAsyncProcess asyncProc = new TestAsyncProcess(Arrays.asList("item1"));
+		StringProcess1 asyncProc = new StringProcess1(1);
 
 		// if subscriber == null
 		Whitebox.setInternalState(asyncProc, "subscriber", null);
@@ -237,11 +237,11 @@ public class AsyncProcessTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncProcess#postProcess()} のためのテスト・メソッド。
+ 	 * @throws IOException if error occurs
 	 **********************************
 	 */
 	@Test
-	public void testPostProcess() throws Exception {
+	public void testPostProcess() throws IOException {
 		StringProcess1 asyncProc = spy(new StringProcess1(1));
 		try (AsyncResult<String> asyncResult = AsyncExecutor.execute(asyncProc)) {
 			List<String> result = asyncResult.block();

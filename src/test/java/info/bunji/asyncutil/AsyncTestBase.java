@@ -3,10 +3,6 @@
  */
 package info.bunji.asyncutil;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -35,139 +31,214 @@ public abstract class AsyncTestBase {
 		logger.info("■■■ test finish " + name.getMethodName() + "() ■■■");
 	}
 
-	static class TestProcess extends AsyncProcess<String> {
-		private int size;
+	/**
+	 ********************************************
+	 *
+	 ********************************************
+	 */
+	static class StringProcess1 extends AsyncProcess<String> {
+		/** process item size */
+		private int size = 100;
+		/** item emit interval */
+		private long interval = 0;
+		/** exception throw timing */
+		private int errThrowCnt = -1;
 
-		public TestProcess(int size) {
+		/**
+		 **********************************
+		 * @param size process item size
+		 **********************************
+		 */
+		public StringProcess1(int size) {
+			this(size, 0, -1);
+		}
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 * @param interval item emit interval(ms)
+		 **********************************
+		 */
+		public StringProcess1(int size, long interval) {
+			this(size, interval, -1);
+		}
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 * @param errThrowCnt exception throw timing
+		 **********************************
+		 */
+		public StringProcess1(int size, int errThrowCnt) {
+			this(size, 0, errThrowCnt);
+		}
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 * @param interval item emit interval(ms)
+		 * @param errThrowCnt exception throw timing
+		 **********************************
+		 */
+		public StringProcess1(int size, long interval, int errThrowCnt) {
 			this.size = size;
+			this.interval = interval;
+			this.errThrowCnt = errThrowCnt;
 		}
 
+		/**
+		 **********************************
+		 * {@inheritDoc}
+		 **********************************
+		 */
 		@Override
 		protected void execute() throws Exception {
-			int step = 10;
-			List<String> temp = new ArrayList<>();
+			String prefix = Thread.currentThread().getName();
 			for (int i = 1; i <= size; i++) {
-				temp.add(Thread.currentThread().getName() + "-" + i);
-				if (temp.size() == step) {
-					append(temp);
+				if (interval > 0) {
+					try {
+						Thread.sleep(interval);
+					} catch (InterruptedException e) {
+						// process canceled.
+						break;
+					}
 				}
-				if (isInterrupted()) break;
+				if (errThrowCnt == i) {
+					throw new Exception("Test Eception Occurred.");
+				}
+
+//				String msg = prefix + "-" + i + " isFinished=" + isFinished;
+//				String msg = prefix + "-" + i;
+//				logger.debug(msg);
+				append(prefix + "-" + i);
 			}
-			if (!temp.isEmpty()) append(temp);
 		}
 	}
 
-	static class TestProcessInt extends AsyncProcess<Integer> {
-		private int size;
+	/**
+	 ********************************************
+	 *
+	 ********************************************
+	 */
+	public class StringProcess2 extends StringProcess1 {
 
-		public TestProcessInt(int size) {
+		/**
+		 **********************************
+		 * @param size process item size
+		 **********************************
+		 */
+		public StringProcess2(int size) {
+			super(size);
+		}
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 * @param interval item emit interval(ms)
+		 **********************************
+		 */
+		public StringProcess2(int size, long interval) {
+			super(size, interval);
+		}
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 * @param errThrowCnt exception throw timing
+		 **********************************
+		 */
+		public StringProcess2(int size, int errThrowCnt) {
+			super(size, errThrowCnt);
+		}
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 * @param interval item emit interval(ms)
+		 * @param errThrowCnt exception throw timing
+		 **********************************
+		 */
+		public StringProcess2(int size, long interval, int errThrowCnt) {
+			super(size, interval, errThrowCnt);
+		}
+	}
+
+	/**
+	 ********************************************
+	 *
+	 ********************************************
+	 */
+	static class IntegerProcess1 extends AsyncProcess<Integer> {
+		/** process item size */
+		private int size = 100;
+		/** item emit interval */
+		private long interval = 0;
+		/** exception throw timing */
+		private int errThrowCnt = -1;
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 **********************************
+		 */
+		public IntegerProcess1(int size) {
+			this(size, 0, -1);
+		}
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 * @param interval item emit interval(ms)
+		 **********************************
+		 */
+		public IntegerProcess1(int size, long interval) {
+			this(size, interval, -1);
+		}
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 * @param errThrowCnt exception throw timing
+		 **********************************
+		 */
+		public IntegerProcess1(int size, int errThrowCnt) {
+			this(size, 0, errThrowCnt);
+		}
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 * @param interval item emit interval(ms)
+		 * @param errThrowCnt exception throw timing
+		 **********************************
+		 */
+		public IntegerProcess1(int size, long interval, int errThrowCnt) {
 			this.size = size;
+			this.interval = interval;
+			this.errThrowCnt = errThrowCnt;
 		}
 
-		@Override
-		protected void execute() throws Exception {
-			int step = 10;
-			List<Integer> temp = new ArrayList<>();
-			for (int i = 1; i <= size; i++) {
-				temp.add(i);
-				if (temp.size() == step) {
-					append(temp);
-				}
-				if (isInterrupted()) break;
-			}
-			if (!temp.isEmpty()) append(temp);
-		}
-	}
-
-
-	static class TestProcess2 extends AsyncProcess<String> {
-
-		private Iterable<String> it;
-
-		public TestProcess2(Iterable<String> it) {
-			this.it = it;
-		}
-
-		@Override
-		protected void execute() throws Exception {
-			int step = 10;
-			List<String> temp = new ArrayList<>();
-			for (String item : it) {
-				temp.add("test_" + item);
-				if (temp.size() == step) {
-					append(temp);
-				}
-				if (isInterrupted()) break;
-			}
-			if (!temp.isEmpty()) append(temp);
-		}
-	}
-
-	static class TestProcessWithWait extends AsyncProcess<String> {
-
-		private int size;
-
-		public TestProcessWithWait(int size) {
-			this.size = size;
-		}
-
+		/**
+		 **********************************
+		 * {@inheritDoc}
+		 **********************************
+		 */
 		@Override
 		protected void execute() throws Exception {
 			for (int i = 1; i <= size; i++) {
-				//String s = Thread.currentThread().getName() + "-" +  i;
-				//logger.debug("add " + s);
-				append(Thread.currentThread().getName() + "-" +  i);
-				try {
-					Thread.sleep(30);
-				} catch(Exception e) {}
-				if (isInterrupted()) break;
-			}
-		}
-	}
-
-	static class TestProcessWithException extends AsyncProcess<String> {
-		@Override
-		protected void execute() throws Exception {
-			for (int i = 0; i < 1000; i++) {
-				append(Thread.currentThread().getName() + "-" +  i);
-				if (i == 500) {
-					throw new Exception("test");
+				if (interval > 0) {
+					try {
+						Thread.sleep(interval);
+					} catch (InterruptedException e) {
+						// process canceled.
+						break;
+					}
 				}
-				if (isInterrupted()) break;
+				if (errThrowCnt == i) {
+					throw new Exception("Test Eception Occurred.");
+				}
+				append(i);
 			}
-		}
-	}
-
-	static class TestProcessWithException2 extends AsyncProcess<String> {
-
-		@SuppressWarnings("null")
-		public TestProcessWithException2() {
-			//isInterrupted();
-			String nullStr = null;
-			nullStr.toString();
-
-			// occur IllegalStateException()
-			append("test");
-		}
-
-		@Override
-		protected void execute() throws Exception {
-			// do nothing.
-		}
-	}
-
-	static class TestProcessWithException3 extends AsyncProcess<String> {
-
-		public TestProcessWithException3() {
-			isInterrupted();
-
-			// occur IllegalStateException()
-			append(Arrays.asList("test1", "test2"));
-		}
-
-		@Override
-		protected void execute() throws Exception {
-			// do nothing.
 		}
 	}
 }

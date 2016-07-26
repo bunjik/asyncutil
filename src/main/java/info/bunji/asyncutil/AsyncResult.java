@@ -41,15 +41,14 @@ import rx.schedulers.Schedulers;
  * <p>
  * iterate access processed result.<br>
  * return result to immidiate, after call {@code AsyncEXecutor.execute()}.<br>
- * <pre>
- * usage;(use try-with-resource):
- *
- * try (AsyncResults<String> as =AsyncExecutor.execute(new AsyncSearchProc())) {
+ * usage;(use try-with-resource):<br>
+ * {@code
+ * try (AsyncResults<String> as = AsyncExecutor.execute(new AsyncSearchProc())) {
  *   for (String r : as) {
  *     // process result.
  *   }
  * } // call close() on finally block.
- * </pre>
+ * }
  * @author f.kinoshita
  * @param <T> result type
  ************************************************

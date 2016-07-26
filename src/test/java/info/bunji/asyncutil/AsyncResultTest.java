@@ -22,30 +22,23 @@ import rx.Observable;
 import rx.Subscriber;
 
 /**
+ ************************************************
+ *
  * @author f.kinoshita
+ ************************************************
  */
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({Subscriber.class})
 public class AsyncResultTest extends AsyncTestBase {
 
-//	/**
-//	 **********************************
-//	 * {@link info.bunji.asyncutil.AsyncResult#AsyncResult(rx.Observable, int, rx.Scheduler)} のためのテスト・メソッド。
-//	 **********************************
-//	 */
-//	@Test
-//	public void testAsyncResult() {
-//		fail("まだ実装されていません");
-//	}
-
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncResult#block()} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
 	public void testBlock() throws Exception {
-		try (AsyncResult<String> result = AsyncExecutor.execute(new TestProcess(1000))) {
+		try (AsyncResult<String> result = AsyncExecutor.execute(new StringProcess1(1000))) {
 			List<String> list = result.block();
 			assertThat(list.size(), is(1000));
 		}
@@ -53,12 +46,12 @@ public class AsyncResultTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncResult#close()} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
 	public void testClose() throws Exception {
-		AsyncResult<String> asyncResult = spy(AsyncExecutor.execute(new TestProcess(500)));
+		AsyncResult<String> asyncResult = spy(AsyncExecutor.execute(new StringProcess1(500)));
 
 		@SuppressWarnings("unchecked")
 		Subscriber<String> subscriber = (Subscriber<String>) Whitebox.getInternalState(asyncResult, "subscriber");
@@ -75,7 +68,7 @@ public class AsyncResultTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncResult#close()} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
@@ -98,13 +91,13 @@ public class AsyncResultTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncResult#iterator()} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
 	public void testHasNext() throws Exception {
 		int count = 0;
-		try (AsyncResult<String> result = AsyncExecutor.execute(new TestProcess(1000))) {
+		try (AsyncResult<String> result = AsyncExecutor.execute(new StringProcess1(1000))) {
 			Iterator<String> it = result.iterator();
 			while(it.hasNext()) {
 				it.next();
@@ -116,13 +109,13 @@ public class AsyncResultTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncResult#iterator()} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test
 	public void testNext() throws Exception {
 		int count = 0;
-		try (AsyncResult<String> result = AsyncExecutor.execute(new TestProcess(100))) {
+		try (AsyncResult<String> result = AsyncExecutor.execute(new StringProcess1(100))) {
 			Iterator<String> it = result.iterator();
 			while(it.hasNext()) {
 				count++;
@@ -135,12 +128,12 @@ public class AsyncResultTest extends AsyncTestBase {
 
 	/**
 	 **********************************
-	 * {@link info.bunji.asyncutil.AsyncResult#iterator()} のためのテスト・メソッド。
+ 	 * @throws Exception if error occurs
 	 **********************************
 	 */
 	@Test(expected=UnsupportedOperationException.class)
 	public void testRemove() throws Exception {
-		try (AsyncResult<String> result = AsyncExecutor.execute(new TestProcess(100))) {
+		try (AsyncResult<String> result = AsyncExecutor.execute(new StringProcess1(100))) {
 			Iterator<String> it = result.iterator();
 			while(it.hasNext()) {
 				it.next();
@@ -148,5 +141,4 @@ public class AsyncResultTest extends AsyncTestBase {
 			}
 		}
 	}
-
 }

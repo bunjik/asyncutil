@@ -42,8 +42,10 @@ public final class AsyncExecutor {
 	}
 
 	/**
+	 **********************************
 	 *
 	 * @return builder
+	 **********************************
 	 */
 	public static Builder builder() {
 		return new Builder();
@@ -123,7 +125,6 @@ public final class AsyncExecutor {
 		// 非同期処理の監視用オブジェクトの生成
 		Observable<T> o = Observable.create(asyncProc)
 				.doOnTerminate(new doPostProcess(asyncProc))
-//				.doOnUnsubscribe(new doPostProcess(asyncProc))
 				.subscribeOn(scheduler);
 
 		// 結果が格納されるオブジェクトを返す
@@ -312,7 +313,6 @@ public final class AsyncExecutor {
 		 ******************************
 		 */
 		public Builder queueLimit(final int queueLimit) {
-			//this.queueLimit = queueLimit > 0 ? queueLimit : 10;
 			this.queueLimit = queueLimit;
 			return this;
 		}
@@ -339,7 +339,6 @@ public final class AsyncExecutor {
 		 ******************************
 		 */
 		public Builder maxConcurrent(final int maxConcurrent) {
-			//this.maxConcurrent = maxConcurrent > 0 ? maxConcurrent : DEFAULT_MAX_CONCURRENT;
 			this.maxConcurrent = maxConcurrent;
 			return this;
 		}
@@ -354,7 +353,6 @@ public final class AsyncExecutor {
 		 ******************************
 		 */
 		public <T> AsyncResult<T> execute(AsyncProcess<T> proc) {
-//			return AsyncExecutor.execute(proc, queueLimit, scheduler);
 			return execute(Arrays.asList(proc));
 		}
 
