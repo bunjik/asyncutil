@@ -348,123 +348,31 @@ public class AsyncExecutorTest extends AsyncTestBase {
 		assertThat(count, is(size * 2));
 	}
 
-
-
-//	@Test
-//	public void testExecuteWithSchedulerAndCancel()throws IOException {
-//		int size = 500;
-//		int  count = 0;
-//		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithWait(size), Schedulers.immediate())) {
-//			for (@SuppressWarnings("unused") String s : results) {
-//				if (count++ > 50) {
-//					break;	// interrupt
-//				}
-//			}
-//		}
-//		assertThat(count, is(not(size)));
-//	}
-
-//	@Test
-//	public void testExecuteMulti() throws Exception {
-//		try (AsyncResult<String> results =
-//				AsyncExecutor.execute(new TestProcess2(AsyncExecutor.execute(new TestProcess(100))), 10)) {
-//			for (String result : results) {
-//				logger.debug(result);
-//				Thread.sleep(2);
-//			}
-//		}
-//	}
-//
-//	@Test(expected=Exception.class)
-//	public void testExecuteException2() throws Exception {
-//		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithException2())) {
-//		}
-//		Assert.fail("not exception");
-//	}
-//
-//	@Test(expected=Exception.class)
-//	public void testExecuteException3() throws Exception {
-//		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithException3())) {
-//		}
-//		Assert.fail("not exception");
-//	}
-//
-//	@Test
-//	public void testExecuteWait() throws Exception {
-//		int count = 0;
-//		try (AsyncResult<String> results = AsyncExecutor.execute(new TestProcessWithWait(100))) {
-//			for (@SuppressWarnings("unused") String s : results) {
-//				count++;
-////				Thread.sleep(30);
-//			}
-//		}
-//		assertThat(count, is(100));
-//	}
-//
-//	@Test
-//	public void testExecuteParallel() throws Exception {
-//		List<AsyncProcess<String>> procList = new ArrayList<>();
-//		procList.add(new TestProcessWithWait(30));
-//		procList.add(new TestProcessWithWait(30));
-//		procList.add(new TestProcessWithWait(30));
-//		procList.add(new TestProcessWithWait(30));
-////		procList.add(new TestProcessWithException());
-//
-//		int count = 0;
-//		try (AsyncResult<String> results = AsyncExecutor.execute(procList)) {
-//			for (String result : results) {
-//				logger.debug(result);
-//				count++;
-//			}
-//		}
-//		assertThat(count, is(120));
-//	}
-//
-//	@Test
-//	public void testExecuteParallel2() throws Exception {
-//		List<AsyncProcess<String>> procList = new ArrayList<>();
-//		procList.add(new TestProcessWithWait(30));
-//		procList.add(new TestProcessWithWait(30));
-//		procList.add(new TestProcessWithWait(30));
-//		procList.add(new TestProcessWithWait(30));
-////		procList.add(new TestProcessWithException());
-//
-//		int count = 0;
-//		try (AsyncResult<String> results = AsyncExecutor.execute(procList, Schedulers.trampoline())) {
-//			for (String result : results) {
-//				logger.debug(result);
-//				count++;
-//			}
-//		}
-//		assertThat(count, is(120));
-//	}
-//
-//	@Test
-//	public void testExecuteFromBuilder() throws Exception {
-//		Builder builder = AsyncExecutor.builder()
-//							.queueLimit(50)
-//							.maxConcurrent(1)
-//							.scheduler(Schedulers.immediate());
-//
-//		int count = 0;
-//		try (AsyncResult<String> results = builder.execute(new TestProcess(100))) {
-//			for (@SuppressWarnings("unused") String result : results) {
-//				count++;
-//			}
-//		}
-//		assertThat(count, is(100));
-//	}
-//
-//	@Test
-//	public void testExecuteFromBuilder2() throws Exception {
-//		Builder builder = AsyncExecutor.builder();
-//
-//		int count = 0;
-//		try (AsyncResult<String> results = builder.execute(new ArrayList<AsyncProcess<String>>())) {
-//			for (@SuppressWarnings("unused") String result : results) {
-//				count++;
-//			}
-//		}
-//		assertThat(count, is(0));
-//	}
+	/**
+	 * test chain async execute.
+	 *
+	 * @throws Exception if error occurs
+	 */
+	@Test
+	public void testExecuteChain() throws Exception {
+		int size = 100;
+		int count = 0;
+		IntegerProcess proc1 = null;
+		ChainProcess   proc2 = null;
+		try {
+			proc1 = spy(new IntegerProcess(size, 1L));
+			proc2 = spy(new ChainProcess(AsyncExecutor.execute(proc1)));
+			try (AsyncResult<String> results = AsyncExecutor.execute(proc2)) {
+				for (@SuppressWarnings("unused") String result : results) {
+					count++;
+				}
+			}
+		} finally {
+			verify(proc1, times(1)).execute();
+			verify(proc1, times(1)).postProcess();
+			verify(proc2, times(1)).execute();
+			verify(proc2, times(1)).postProcess();
+			assertThat(count, is(size));
+		}
+	}
 }

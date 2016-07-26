@@ -163,12 +163,27 @@ public abstract class AsyncTestBase {
 		}
 	}
 
+	static class ChainProcess extends AsyncProcess<String> {
+		private final Iterable<Integer> it;
+
+		public ChainProcess(Iterable<Integer> it) {
+			this.it = it;
+		}
+
+		@Override
+		protected void execute() throws Exception {
+			for (Integer item : it) {
+				append("item_" + item);
+			}
+		}
+	}
+
 	/**
 	 ********************************************
 	 *
 	 ********************************************
 	 */
-	static class IntegerProcess1 extends AsyncProcess<Integer> {
+	static class IntegerProcess extends AsyncProcess<Integer> {
 		/** process item size */
 		private int size = 100;
 		/** item emit interval */
@@ -181,7 +196,7 @@ public abstract class AsyncTestBase {
 		 * @param size process item size
 		 **********************************
 		 */
-		public IntegerProcess1(int size) {
+		public IntegerProcess(int size) {
 			this(size, 0, -1);
 		}
 
@@ -191,7 +206,7 @@ public abstract class AsyncTestBase {
 		 * @param interval item emit interval(ms)
 		 **********************************
 		 */
-		public IntegerProcess1(int size, long interval) {
+		public IntegerProcess(int size, long interval) {
 			this(size, interval, -1);
 		}
 
@@ -201,7 +216,7 @@ public abstract class AsyncTestBase {
 		 * @param errThrowCnt exception throw timing
 		 **********************************
 		 */
-		public IntegerProcess1(int size, int errThrowCnt) {
+		public IntegerProcess(int size, int errThrowCnt) {
 			this(size, 0, errThrowCnt);
 		}
 
@@ -212,7 +227,7 @@ public abstract class AsyncTestBase {
 		 * @param errThrowCnt exception throw timing
 		 **********************************
 		 */
-		public IntegerProcess1(int size, long interval, int errThrowCnt) {
+		public IntegerProcess(int size, long interval, int errThrowCnt) {
 			this.size = size;
 			this.interval = interval;
 			this.errThrowCnt = errThrowCnt;
