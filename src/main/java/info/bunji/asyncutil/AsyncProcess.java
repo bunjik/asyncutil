@@ -62,6 +62,7 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 			// error occurred
 			this.subscriber.onError(t);
 		}
+		doPostProcess();
 	}
 
 	/**
