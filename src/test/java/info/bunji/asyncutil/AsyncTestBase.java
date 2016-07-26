@@ -94,7 +94,7 @@ public abstract class AsyncTestBase {
 		@Override
 		protected void execute() throws Exception {
 			String prefix = Thread.currentThread().getName();
-			for (int i = 1; i <= size; i++) {
+			for (int i = 0; i < size; i++) {
 				if (interval > 0) {
 					try {
 						Thread.sleep(interval);
@@ -104,7 +104,7 @@ public abstract class AsyncTestBase {
 					}
 				}
 				if (errThrowCnt == i) {
-					throw new Exception("Test Eception Occurred.");
+					throw new Exception("Test Exception Occurred.");
 				}
 
 //				String msg = prefix + "-" + i + " isFinished=" + isFinished;
@@ -250,7 +250,7 @@ public abstract class AsyncTestBase {
 					}
 				}
 				if (errThrowCnt == i) {
-					throw new Exception("Test Eception Occurred.");
+					throw new Exception("Test Exception Occurred.");
 				}
 				append(i);
 			}

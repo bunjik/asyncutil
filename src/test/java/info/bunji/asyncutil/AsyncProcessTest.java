@@ -96,18 +96,15 @@ public class AsyncProcessTest extends AsyncTestBase {
 	 */
 	@Test
 	public void testExceptionInExecute() throws Exception {
-		StringProcess1 asyncProc = spy(new StringProcess1(10));
-
-		doThrow(new Exception("TestException")).when(asyncProc).execute();
+		StringProcess1 asyncProc = spy(new StringProcess1(10, 0));
 
 		try (AsyncResult<String> result = AsyncExecutor.execute(asyncProc)) {
 			result.iterator().next();
 			fail();
 		} catch(Exception e) {
-			assertThat(e.getCause().getMessage(), is("TestException"));
+			assertThat(e.getCause().getMessage(), is("Test Exception Occurred."));
 		}
-
-		//verify(asyncProc, times(1)).execute();
+		verify(asyncProc, times(1)).execute();
 		verify(asyncProc, times(1)).postProcess();
 	}
 

@@ -56,14 +56,10 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 
 			// finish process
 			this.subscriber.onCompleted();
-//		} catch (ProcessCanceledException t) {
-//			// do nothing.
+		} catch (ProcessCanceledException t) {
+			// do nothing.
 		} catch (Throwable t) {
-			for (Throwable e : t.getSuppressed()) {
-				if (e instanceof ProcessCanceledException) {
-					return;
-				}
-			}
+			// error occurred
 			this.subscriber.onError(t);
 		}
 	}

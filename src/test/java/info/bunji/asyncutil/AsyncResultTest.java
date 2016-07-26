@@ -118,9 +118,9 @@ public class AsyncResultTest extends AsyncTestBase {
 		try (AsyncResult<String> result = AsyncExecutor.execute(new StringProcess1(100))) {
 			Iterator<String> it = result.iterator();
 			while(it.hasNext()) {
-				count++;
 				String item = it.next();
 				assertThat(item, CoreMatchers.endsWith("-" + count));
+				count++;
 			}
 		}
 		assertThat(count, is(100));
