@@ -61,8 +61,9 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 		} catch (Throwable t) {
 			// error occurred
 			this.subscriber.onError(t);
+		} finally {
+			doPostProcess();
 		}
-		doPostProcess();
 	}
 
 	/**
@@ -139,7 +140,7 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 **********************************
 	 */
 	final void doPostProcess() {
-		synchronized(lock) {
+		synchronized (lock) {
 			if (!isFinished) {
 				isFinished = true;
 				postProcess();

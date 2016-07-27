@@ -129,6 +129,28 @@ public class AsyncExecutorTest extends AsyncTestBase {
 	}
 
 	/**
+	 * test execute with queueLimit and Scheduler.
+	 *
+	 * @throws IOException if an I/O error occurs
+	 */
+	@Test
+	public void testExecuteWithQueueLimitAndScheduler() throws IOException {
+		int size = 100;
+		int queueLimit = 30;
+		StringProcess1 proc1 = spy(new StringProcess1(size));
+
+		int count = 0;
+		try (AsyncResult<String> results = AsyncExecutor.execute(proc1, queueLimit, Schedulers.io())) {
+			for (@SuppressWarnings("unused") String s : results) {
+				count++;
+			}
+		} finally {
+			verify(proc1, times(1)).postProcess();
+		}
+		assertThat(count, is(size));
+	}
+
+	/**
 	 * test parallel execute default setting.
 	 *
 	 * @throws IOException if an I/O error occurs

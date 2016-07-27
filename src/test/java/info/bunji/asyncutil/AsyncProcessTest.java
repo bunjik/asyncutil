@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -244,6 +245,57 @@ public class AsyncProcessTest extends AsyncTestBase {
 			List<String> result = asyncResult.block();
 
 			assertThat(result.size(), is(1));
+		}
+		verify(asyncProc, times(1)).postProcess();
+	}
+
+	/**
+	 **********************************
+ 	 * @throws IOException if error occurs
+	 **********************************
+	 */
+	@Test
+	public void testPostProcess2() throws Exception {
+		final StringProcess3 asyncProc = spy(new StringProcess3(1, 1000L));
+		try (AsyncResult<String> asyncResult = AsyncExecutor.execute(asyncProc)) {
+			final CountDownLatch latch = new CountDownLatch(2);
+			Thread t1 = new Thread(new Runnable() {
+				@Override
+				public void run() {
+					logger.debug("call doPostProcess()");
+					asyncProc.doPostProcess();
+					latch.countDown();
+				}
+			});
+			Thread t2 = new Thread(new Runnable() {
+				@Override
+				public void run() {
+					logger.debug("call doPostProcess()");
+					asyncProc.doPostProcess();
+					latch.countDown();
+				}
+			});
+			t1.start();
+			t2.start();
+			latch.await();
+		}
+		verify(asyncProc, times(1)).postProcess();
+	}
+
+	/**
+	 **********************************
+ 	 * @throws IOException if error occurs
+	 **********************************
+	 */
+	@Test
+	public void testDuplicatedDoPostProcess() throws IOException {
+		StringProcess1 asyncProc = spy(new StringProcess1(1));
+		try (AsyncResult<String> asyncResult = AsyncExecutor.execute(asyncProc)) {
+			List<String> result = asyncResult.block();
+
+			assertThat(result.size(), is(1));
+			asyncProc.doPostProcess();
+			asyncProc.doPostProcess();
 		}
 		verify(asyncProc, times(1)).postProcess();
 	}

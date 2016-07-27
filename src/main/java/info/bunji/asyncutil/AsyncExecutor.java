@@ -233,7 +233,7 @@ public final class AsyncExecutor {
 			// interrupt process
 			for (AsyncProcess<T> asyncProc : asyncProcList) {
 				try {
-					asyncProc.postProcess();
+					asyncProc.doPostProcess();
 				} catch (Exception e) {}
 			}
 			throw new IllegalArgumentException("maxConcurrent require greater than 0.(current:" + maxConcurrent +")");

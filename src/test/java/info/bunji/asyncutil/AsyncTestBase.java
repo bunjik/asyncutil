@@ -163,6 +163,9 @@ public abstract class AsyncTestBase {
 		}
 	}
 
+	/**
+	 *
+	 */
 	static class ChainProcess extends AsyncProcess<String> {
 		private final Iterable<Integer> it;
 
@@ -175,6 +178,39 @@ public abstract class AsyncTestBase {
 			for (Integer item : it) {
 				append("item_" + item);
 			}
+		}
+	}
+
+	/**
+	 ********************************************
+	 *
+	 ********************************************
+	 */
+	public class StringProcess3 extends StringProcess1 {
+		/** postProcess wait ms */
+		private long  waitPostMs;
+
+		/**
+		 **********************************
+		 * @param size process item size
+		 **********************************
+		 */
+		public StringProcess3(int size, long waitMs) {
+			super(size);
+			waitPostMs = waitMs;
+		}
+
+
+		@Override
+		protected void postProcess() {
+			logger.debug("begin postProcess.");
+			try {
+				Thread.sleep(waitPostMs);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+			super.postProcess();
+			logger.debug("end postProcess.");
 		}
 	}
 

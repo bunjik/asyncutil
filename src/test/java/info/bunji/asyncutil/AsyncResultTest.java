@@ -9,6 +9,7 @@ import static org.mockito.Mockito.*;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import org.hamcrest.CoreMatchers;
 import org.junit.Test;
@@ -124,6 +125,27 @@ public class AsyncResultTest extends AsyncTestBase {
 			}
 		}
 		assertThat(count, is(100));
+	}
+
+	/**
+	 **********************************
+ 	 * @throws Exception if error occurs
+	 **********************************
+	 */
+	@Test(expected=NoSuchElementException.class)
+	public void testNextException() throws Exception {
+		int size = 10;
+		int count = 0;
+		try (AsyncResult<String> result = AsyncExecutor.execute(new StringProcess1(size))) {
+			Iterator<String> it = result.iterator();
+			while(it.hasNext()) {
+				it.next();
+				count++;
+			}
+			assertThat(count, is(size));
+			it.next();	// exception occurred.
+		}
+		fail();
 	}
 
 	/**
