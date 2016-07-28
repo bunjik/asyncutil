@@ -100,12 +100,13 @@ public class AsyncProcessTest extends AsyncTestBase {
 		StringProcess1 asyncProc = spy(new StringProcess1(10, 0));
 
 		try (AsyncResult<String> result = AsyncExecutor.execute(asyncProc)) {
-			result.iterator().next();
+			result.block();
 			fail();
 		} catch(Exception e) {
 			assertThat(e.getCause().getMessage(), is("Test Exception Occurred."));
 		}
 		verify(asyncProc, times(1)).execute();
+		Thread.sleep(1000L);	// wait finish postProcess for test
 		verify(asyncProc, times(1)).postProcess();
 	}
 
