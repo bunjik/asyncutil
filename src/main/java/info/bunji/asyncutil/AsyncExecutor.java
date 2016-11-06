@@ -35,7 +35,7 @@ public final class AsyncExecutor {
 
 	//private static Logger logger = LoggerFactory.getLogger(AsyncExecutor.class);
 
-	private static final int DEFAULT_MAX_CONCURRENT = 10;
+	private static final int DEFAULT_MAX_CONCURRENT = Runtime.getRuntime().availableProcessors() * 2;
 
 	private AsyncExecutor() {
 		// do nothing.
@@ -61,7 +61,7 @@ public final class AsyncExecutor {
 	 * <li>execute thread scheduler : newThread</li>
 	 * </ul>
 	 * @param <T> result type
-	 * @param asyncProc		async process
+	 * @param asyncProc async process
 	 * @return iterable process result
 	 **********************************
 	 */
@@ -139,7 +139,7 @@ public final class AsyncExecutor {
 	 * <ul>
 	 * <li>result queue limit : no limit</li>
 	 * <li>execute thread scheduler : newThread</li>
-	 * <li>max concurrent process : {@value #DEFAULT_MAX_CONCURRENT}</li>
+	 * <li>max concurrent process : availableProcessors * 2</li>
 	 * </ul>
 	 * @param <T> result type
 	 * @param asyncProcList		async process list
@@ -158,7 +158,7 @@ public final class AsyncExecutor {
 	 * multiple process async exxecute with default settings.<br>
 	 * <ul>
 	 * <li>result queue limit : no limit</li>
-	 * <li>max concurrent process : {@value #DEFAULT_MAX_CONCURRENT}</li>
+	 * <li>max concurrent process : availableProcessors * 2</li>
 	 * </ul>
 	 * @param <T> result type
 	 * @param asyncProcList		async process list

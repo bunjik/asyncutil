@@ -15,6 +15,7 @@
  */
 package info.bunji.asyncutil;
 
+import java.util.EventListener;
 import java.util.Iterator;
 
 import org.slf4j.Logger;
@@ -42,6 +43,8 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 
 	private boolean isFinished = false;
 
+	private Listener listener = null;
+
 	/**
 	 **********************************
 	 * {@inheritDoc}
@@ -50,7 +53,11 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	@Override
 	public final void call(Subscriber<? super T> subscriber) {
 		this.subscriber = subscriber;
+
 		try {
+			// fire event
+			if (listener != null) listener.onStart();
+
 			// execute process
 			execute();
 
@@ -59,7 +66,6 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 		} catch (ProcessCanceledException t) {
 			// do nothing.
 		} catch (Throwable t) {
-			// error occurred
 			this.subscriber.onError(t);
 		} finally {
 			doPostProcess();
@@ -131,7 +137,7 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 **********************************
 	 */
 	protected void postProcess() {
-		logger.trace("call postProcess()");
+		//logger.trace("call postProcess()");
 	}
 
 	/**
@@ -144,7 +150,36 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 			if (!isFinished) {
 				isFinished = true;
 				postProcess();
+
+				// fire event
+				if (listener != null) listener.onFinish();
 			}
 		}
+	}
+
+	public void setListener(Listener listener) {
+		this.listener = listener;
+	}
+
+	public void removeListener() {
+		listener = null;
+	}
+
+	/**
+	 **********************************
+	 * event listener interface
+	 **********************************
+	 */
+	public static interface Listener extends EventListener {
+
+		/**
+		 * before process start
+		 */
+		void onStart();
+
+		/**
+		 * after process finished
+		 */
+		void onFinish();
 	}
 }

@@ -41,7 +41,8 @@ import rx.schedulers.Schedulers;
  * <p>
  * iterate access processed result.<br>
  * return result to immidiate, after call {@code AsyncEXecutor.execute()}.<br>
- * usage;(use try-with-resource):<br>
+ * usage: (use try-with-resource):
+ * <pre>
  * {@code
  * try (AsyncResults<String> as = AsyncExecutor.execute(new AsyncSearchProc())) {
  *   for (String r : as) {
@@ -49,6 +50,7 @@ import rx.schedulers.Schedulers;
  *   }
  * } // call close() on finally block.
  * }
+ * </pre>
  * @author f.kinoshita
  * @param <T> result type
  ************************************************

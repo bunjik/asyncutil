@@ -23,12 +23,12 @@ public abstract class AsyncTestBase {
 
 	@Before
 	public void setup() {
-		logger.info("■■■ test start " + name.getMethodName() + "() ■■■");
+		logger.info("*** test start " + name.getMethodName() + "() ***");
 	}
 
 	@After
 	public void tearDown() {
-		logger.info("■■■ test finish " + name.getMethodName() + "() ■■■");
+		logger.info("*** test finish " + name.getMethodName() + "() ***");
 	}
 
 	/**
@@ -193,6 +193,7 @@ public abstract class AsyncTestBase {
 		/**
 		 **********************************
 		 * @param size process item size
+		 * @param waitMs process wait millis
 		 **********************************
 		 */
 		public StringProcess3(int size, long waitMs) {
