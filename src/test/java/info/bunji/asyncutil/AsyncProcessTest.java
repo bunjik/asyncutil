@@ -20,6 +20,7 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
+import info.bunji.asyncutil.AsyncProcess.Listener;
 import rx.Subscriber;
 
 /**
@@ -300,4 +301,49 @@ public class AsyncProcessTest extends AsyncTestBase {
 		}
 		verify(asyncProc, times(1)).postProcess();
 	}
+
+	@Test
+	public void testAddListener() throws IOException {
+		StringProcess1 asyncProc = new StringProcess1(1);
+		Listener listener = spy(new AsyncProcess.Listener() {
+			@Override
+			public void onStart() {
+				logger.debug("call onStart()");
+			}
+			@Override
+			public void onFinish() {
+				logger.debug("call onFinish()");
+			}
+		});
+		asyncProc.setListener(listener);
+		try (AsyncResult<String> asyncResult = AsyncExecutor.execute(asyncProc)) {
+			List<String> result = asyncResult.block();
+			assertThat(result.size(), is(1));
+		}
+		verify(listener, times(1)).onStart();
+		verify(listener, times(1)).onFinish();
+	}
+
+	@Test
+	public void testRemoveListener() throws Exception {
+		StringProcess1 asyncProc = new StringProcess1(5, 1000L);
+		Listener listener = spy(new AsyncProcess.Listener() {
+			@Override
+			public void onStart() {
+				logger.debug("call onStart()");
+			}
+			@Override
+			public void onFinish() {
+				logger.debug("call onFinish()");
+			}
+		});
+		asyncProc.setListener(listener);
+		try (AsyncResult<String> asyncResult = AsyncExecutor.execute(asyncProc)) {
+			Thread.sleep(2000);
+			asyncProc.removeListener();
+		}
+		verify(listener, times(1)).onStart();
+		verify(listener, never()).onFinish();
+	}
 }
+

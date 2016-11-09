@@ -2,6 +2,8 @@ package info.bunji.asyncutil;
 
 import static org.mockito.Mockito.*;
 
+import java.io.IOException;
+
 import org.junit.Test;
 
 public class AsyncIntervalProcessTest extends AsyncTestBase {
@@ -29,12 +31,13 @@ public class AsyncIntervalProcessTest extends AsyncTestBase {
 	}
 
 	@Test
-	public void testExecuteInterval() {
+	public void testExecuteInterval() throws IOException {
 		int limit = 10;
 		AsyncIntervalProcess<String> proc = spy(new TestIntervalProc(1000, limit));
 
-		AsyncExecutor.execute(proc).block();
-
+		try (AsyncResult<String> result = AsyncExecutor.execute(proc)) {
+			result.block();
+		}
 		verify(proc, times(limit)).executeInterval();
 		verify(proc, times(1)).postProcess();
 	}
@@ -46,8 +49,8 @@ public class AsyncIntervalProcessTest extends AsyncTestBase {
 
 		try (AsyncResult<String> result = AsyncExecutor.execute(proc)) {
 			Thread.sleep(5000);
+			result.close();
 		}
-
 		verify(proc, times(5)).executeInterval();
 		verify(proc, times(1)).postProcess();
 	}
