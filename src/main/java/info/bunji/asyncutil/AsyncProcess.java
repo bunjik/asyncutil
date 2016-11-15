@@ -43,7 +43,7 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 
 	private boolean isFinished = false;
 
-	private Listener listener = null;
+	protected Listener listener = null;
 
 	/**
 	 **********************************
