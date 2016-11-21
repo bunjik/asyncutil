@@ -245,10 +245,9 @@ public final class AsyncExecutor {
 			list.add(Observable.create(asyncProc)
 					.doOnUnsubscribe(new doPostProcess(asyncProc))
 					.subscribeOn(scheduler)
-				);
+			);
 		}
 
-		//Observable<T> o = Observable.mergeDelayError(list, maxConcurrent);
 		Observable<T> o = Observable.merge(list, maxConcurrent)
 				.doOnUnsubscribe(new doPostProcess(asyncProcList))
 				.subscribeOn(scheduler);

@@ -157,10 +157,25 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 		}
 	}
 
+	/**
+	 **********************************
+	 * set event listener.
+	 * <br>
+	 * if already setted listener, overwrite setting.
+	 * @param listener
+	 **********************************
+	 */
 	public void setListener(Listener listener) {
 		this.listener = listener;
 	}
 
+	/**
+	 **********************************
+	 * remove event listener.
+	 * <br>
+	 * no effect if listener is not setted.
+	 **********************************
+	 */
 	public void removeListener() {
 		listener = null;
 	}

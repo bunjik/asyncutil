@@ -69,7 +69,14 @@ public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 	 */
 	protected abstract boolean executeInterval();
 
-
+	/**
+	 **********************************
+	 * set event listener.
+	 * <br>
+	 * if already setted listener, overwrite setting.
+	 * @param listener
+	 **********************************
+	 */
 	public void setListener(Listener listener) {
 		super.setListener(listener);
 	}
