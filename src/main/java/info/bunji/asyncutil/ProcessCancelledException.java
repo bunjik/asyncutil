@@ -20,6 +20,10 @@ package info.bunji.asyncutil;
  */
 public class ProcessCancelledException extends RuntimeException {
 
+	public ProcessCancelledException() {
+		super();
+	}
+
 	public ProcessCancelledException(String message) {
 		super(message);
 	}

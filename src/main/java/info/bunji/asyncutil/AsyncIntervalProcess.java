@@ -50,7 +50,11 @@ public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 			if (!executeInterval() || isCancelled()) {
 				break;
 			}
-			Thread.sleep(interval);
+			try {
+				Thread.sleep(interval);
+			} catch (InterruptedException ie) {
+				throw new ProcessCancelledException();
+			}
 		}
 	}
 

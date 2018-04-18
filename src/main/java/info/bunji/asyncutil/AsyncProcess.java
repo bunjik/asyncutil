@@ -69,7 +69,6 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
 	 */
 	@Override
 	public final void subscribe(FlowableEmitter<T> emitter) {
-		//this.emitter = emitter;
 		this.emitter = emitter.serialize();
 
 		try {
