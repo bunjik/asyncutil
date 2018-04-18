@@ -15,7 +15,6 @@
  */
 package info.bunji.asyncutil;
 
-
 /**
  ************************************************
  * interval execute process.
@@ -48,12 +47,7 @@ public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 	@Override
 	protected final void execute() throws Exception {
 		while (true) {
-			// fire event
-			if (listener != null) {
-				Listener.class.cast(listener).onInterval();
-			}
-
-			if (!executeInterval() || isInterrupted()) {
+			if (!executeInterval() || isCancelled()) {
 				break;
 			}
 			Thread.sleep(interval);
@@ -62,34 +56,10 @@ public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 
 	/**
 	 **********************************
-	 * implements interval data processing.
+	 * implements interval processing.
 	 *
 	 * @return true if continue process, otherwise false
 	 **********************************
 	 */
 	protected abstract boolean executeInterval();
-
-	/**
-	 **********************************
-	 * set event listener.
-	 * <br>
-	 * if already setted listener, overwrite setting.
-	 * @param listener
-	 **********************************
-	 */
-	public void setListener(Listener listener) {
-		super.setListener(listener);
-	}
-
-	/**
-	 **********************************
-	 * event listener interface
-	 **********************************
-	 */
-	public static interface Listener extends AsyncProcess.Listener {
-		/**
-		 * before intervel start
-		 */
-		void onInterval();
-	}
 }

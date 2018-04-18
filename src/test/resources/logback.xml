@@ -1,5 +1,5 @@
 <!DOCTYPE logback>
-<configuration>
+<configuration debug="false">
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
       <pattern>%d [%-5level] [%t] %c{0} %msg%n</pattern>
@@ -11,7 +11,7 @@
 
   <logger name="chapters.configuration" level="WARN"/>
 
-  <logger name="info.bunji" level="TRACE"/>
+  <logger name="info.bunji" level="DEBUG"/>
 
   <root level="info">
     <appender-ref ref="STDOUT" />

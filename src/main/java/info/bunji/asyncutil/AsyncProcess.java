@@ -15,14 +15,16 @@
  */
 package info.bunji.asyncutil;
 
+import java.util.ArrayList;
 import java.util.EventListener;
 import java.util.Iterator;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import rx.Observable.OnSubscribe;
-import rx.Subscriber;
+import io.reactivex.FlowableEmitter;
+import io.reactivex.FlowableOnSubscribe;
 
 /**
  ************************************************
@@ -32,41 +34,60 @@ import rx.Subscriber;
  * @author f.kinoshita
  ************************************************
  */
-public abstract class AsyncProcess<T> implements OnSubscribe<T> {
+public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
 
 	/** logger */
 	protected Logger logger = LoggerFactory.getLogger(getClass());
 
-	private Subscriber<? super T> subscriber;
+	private FlowableEmitter<T> emitter;
 
-	private Object lock = new Object();
-
-	private boolean isFinished = false;
-
-	protected Listener listener = null;
+	protected List<Listener> listeners = new ArrayList<>();
 
 	/**
 	 **********************************
-	 * {@inheritDoc}
+	 *
+	 **********************************
+	 */
+	public AsyncProcess() {
+	}
+
+	/**
+	 **********************************
+	 *
+	 * @return
+	 **********************************
+	 */
+	protected boolean isCancelled() {
+		return emitter.isCancelled();
+	}
+
+	/*
+	 **********************************
+	 * (non Javadoc)
+	 * @see io.reactivex.FlowableOnSubscribe#subscribe(io.reactivex.FlowableEmitter)
 	 **********************************
 	 */
 	@Override
-	public final void call(Subscriber<? super T> subscriber) {
-		this.subscriber = subscriber;
+	public final void subscribe(FlowableEmitter<T> emitter) {
+		//this.emitter = emitter;
+		this.emitter = emitter.serialize();
 
 		try {
-			// fire event
-			if (listener != null) listener.onStart();
+			// fire start event
+			for (Listener l : listeners) {
+				l.onStart();
+			}
 
 			// execute process
 			execute();
 
 			// finish process
-			this.subscriber.onCompleted();
-		} catch (ProcessCanceledException t) {
-			// do nothing.
+			emitter.onComplete();
+
+		} catch (ProcessCancelledException t) {
+			logger.trace("interrupted in execute() {}", t.getMessage());
 		} catch (Throwable t) {
-			this.subscriber.onError(t);
+			emitter.onError(t);
 		} finally {
 			doPostProcess();
 		}
@@ -75,7 +96,7 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	/**
 	 **********************************
 	 * implements data processing.
-	 * <p>
+	 * <br>
 	 * data process and emit values in this method.<br>
 	 * if call {@code append(T)} or {@code append(List<T>)}, apply values to result.
 	 *
@@ -93,14 +114,11 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 * @param values process result values
 	 **********************************
 	 */
-	protected final void append(Iterable<T> values) {
+	protected final void append(Iterable<T> values) throws InterruptedException {
 		if (values != null) {
 			Iterator<T> it = values.iterator();
 			while (it.hasNext()) {
 				append(it.next());
-				try {
-					it.remove();
-				} catch (UnsupportedOperationException e) {}
 			}
 		}
 	}
@@ -112,23 +130,19 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 * @param value process result value
 	 **********************************
 	 */
-	protected final void append(T value) {
-		if (subscriber == null || isInterrupted()) {
-			throw new ProcessCanceledException("process canceled.");
+	protected final void append(T value) throws ProcessCancelledException {
+		try {
+			boolean isCancelled = false;
+			while (!(isCancelled = emitter.isCancelled()) && emitter.requested() == 0L) {
+				Thread.sleep(50);
+			}
+			if (isCancelled) {
+				throw new ProcessCancelledException("already cancelled(" + value + ")");
+			}
+			emitter.onNext(value);
+		} catch (InterruptedException ie) {
+			throw new ProcessCancelledException("interrupted append(" + value + ")");
 		}
-		subscriber.onNext(value);
-	}
-
-	/**
-	 **********************************
-	 * returns true, if AsyncResult is interrupted.
-	 *
-	 * @return true if AsyncResult is interrupted, otherwise false
-	 **********************************
-	 */
-	protected final boolean isInterrupted() {
-		if (isFinished) return true;
-		return subscriber == null ? false: subscriber.isUnsubscribed();
 	}
 
 	/**
@@ -137,7 +151,17 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 **********************************
 	 */
 	protected void postProcess() {
-		//logger.trace("call postProcess()");
+		// do nothing.
+	}
+
+	/**
+	 **********************************
+	 *
+	 * @return
+	 **********************************
+	 */
+	public final ClosableResult<T> run() {
+		return new ClosableResult<>(this);
 	}
 
 	/**
@@ -145,15 +169,15 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 *
 	 **********************************
 	 */
-	final void doPostProcess() {
-		synchronized (lock) {
-			if (!isFinished) {
-				isFinished = true;
-				postProcess();
-
-				// fire event
-				if (listener != null) listener.onFinish();
+	private final void doPostProcess() {
+		try {
+			// TODO 反転は不要？
+			//Collections.reverse(listeners);
+			for (Listener l : listeners) {
+				l.onFinish();
 			}
+		} finally {
+			postProcess();
 		}
 	}
 
@@ -161,23 +185,12 @@ public abstract class AsyncProcess<T> implements OnSubscribe<T> {
 	 **********************************
 	 * set event listener.
 	 * <br>
-	 * if already setted listener, overwrite setting.
-	 * @param listener
+	 * if already set listener, overwrite setting.
+	 * @param listener event listener
 	 **********************************
 	 */
-	public void setListener(Listener listener) {
-		this.listener = listener;
-	}
-
-	/**
-	 **********************************
-	 * remove event listener.
-	 * <br>
-	 * no effect if listener is not setted.
-	 **********************************
-	 */
-	public void removeListener() {
-		listener = null;
+	public void addListener(Listener listener) {
+		listeners.add(listener);
 	}
 
 	/**
