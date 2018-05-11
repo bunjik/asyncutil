@@ -1,13 +1,15 @@
 package info.bunji.asyncutil;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.*;
-import static org.hamcrest.Matchers.*;
-import static org.mockito.Mockito.*;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.lessThan;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.powermock.api.mockito.PowerMockito.spy;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 
@@ -192,7 +194,7 @@ public class ClosableResultTest extends AsyncTestBase {
 		ClosableResult<String> spyResults = null;
 		try (ClosableResult<String> results = spy(new ClosableResult<>(strList, 100))) {
 			spyResults = results;
-			i = results.toList().size();
+			i = spyResults.toList().size();
 		} finally {
 			logger.debug("get {} items.", i);
 			assertThat(i, is(1000));
@@ -209,7 +211,7 @@ public class ClosableResultTest extends AsyncTestBase {
 		ClosableResult<String> spyResults = null;
 		try (ClosableResult<String> results = spy(new ClosableResult<>(proc))) {
 			spyResults = results;
-			List<String> items = results.toList();
+			List<String> items = spyResults.toList();
 			i = items.size();
 		} finally {
 			logger.debug("get {} items.", i);
@@ -232,6 +234,7 @@ public class ClosableResultTest extends AsyncTestBase {
 			for (Object val : results) {
 				i++;
 				if ((i % 100) == 0) logger.debug("get [{}]", val);
+				Thread.sleep(5);
 			}
 		} catch (Throwable t) {
 			assertThat(t.getMessage(), is(name.getMethodName()));
@@ -294,7 +297,7 @@ public class ClosableResultTest extends AsyncTestBase {
 	}
 
 	@Test(expected=NoSuchElementException.class)
-	public void testExecute_iteratorRemove() throws Exception {
+	public void testExecute_iteratorNoNext() throws Exception {
 
 		TestAsyncProc proc = spy(new TestAsyncProc().setDataCnt(1000));
 		int i = 0;
@@ -309,6 +312,28 @@ public class ClosableResultTest extends AsyncTestBase {
 			verify(spyResults).close();
 		}
 	}
+
+	@Test
+	public void testExecute_iterator() throws Exception {
+		TestAsyncProc proc = spy(new TestAsyncProc().setDataCnt(10));
+		int i = 0;
+		ClosableResult<String> spyResults = null;
+		try (ClosableResult<String> results = spy(new ClosableResult<>(proc))) {
+			spyResults = results;
+			Iterator<String> it = spyResults.iterator();
+			for (int n = 0; n < 10; n++) {
+				it.next();
+				i++;
+			}
+		} finally {
+			logger.debug("get {} items.", i);
+			verify(proc).execute();
+			verify(proc).postProcess();
+			verify(spyResults).close();
+		}
+
+	}
+
 
 	@Test
 	public void testRun() throws Exception {

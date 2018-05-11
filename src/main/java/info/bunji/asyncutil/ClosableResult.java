@@ -78,6 +78,14 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 	private static final int DEFAULT_QUEUE_SIZE = 2048;
 
+	private final Action finallyAction = new Action() {
+		@Override
+		public void run() throws Exception {
+			logger.debug("call doFinally() remain queue={} done={}", it.queueSize(), done);
+			done = true;
+		}
+	};
+
 	/**
 	 **********************************
 	 * @param asyncProc async process
@@ -92,7 +100,6 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	 * @param asyncProc async process
 	 * @param delayError indicates if the onError notification may not cut ahead of onNext notification on the other side of the scheduling boundary. If true a sequence ending in onError will be replayed in the same order as was received from upstream
 	 **********************************
-	 **********************************
 	 */
 	public ClosableResult(AsyncProcess<T> asyncProc, boolean delayError) {
 		this(asyncProc, DEFAULT_QUEUE_SIZE, delayError);
@@ -101,7 +108,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	/**
 	 **********************************
 	 * @param asyncProc async process
-	 * @param bufSize the size of the buffer size
+	 * @param bufSize size of buffer
 	 **********************************
 	 */
 	public ClosableResult(AsyncProcess<T> asyncProc, int bufSize) {
@@ -111,7 +118,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	/**
 	 **********************************
 	 * @param asyncProc async process
-	 * @param bufSize the size of the buffer size
+	 * @param bufSize size of buffer
 	 * @param delayError indicates if the onError notification may not cut ahead of onNext notification on the other side of the scheduling boundary. If true a sequence ending in onError will be replayed in the same order as was received from upstream
 	 **********************************
 	 */
@@ -147,6 +154,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	 */
 	private ClosableResult(Flowable<T> flowable, int bufSize, boolean delayError, Scheduler sheduler) {
 		if (bufSize <= 0) {
+			closeQuietly();
 			throw new IllegalArgumentException("buffer size is greater than 0.");
 		}
 
@@ -154,13 +162,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		it = new BlockingSubscriber(bufSize);
 		flowable.observeOn(sheduler, delayError, OBSERVE_BUF)
 				.subscribeOn(Schedulers.newThread())
-				.doFinally(new Action() {
-					@Override
-					public void run() throws Exception {
-						logger.debug("call doFinally() remain queue={}", it.queueSize());
-						done = true;
-					}
-				})
+				.doFinally(finallyAction)
 				.subscribe(it);
 	}
 
@@ -172,6 +174,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	 */
 	public ClosableResult(Collection<? extends AsyncProcess<T>> procList) {
 		if (procList == null || procList.isEmpty()) {
+			closeQuietly();
 			throw new IllegalArgumentException("process list is null or empty.");
 		}
 
@@ -186,13 +189,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 				.merge(procs, 1)
 				//.observeOn(Schedulers.newThread(), isDelayError, OBSERVE_BUF)
 				.subscribeOn(Schedulers.newThread())
-				.doFinally(new Action() {
-					@Override
-					public void run() throws Exception {
-						logger.debug("call doFinally() remain queue={}", it.queueSize());
-						done = true;
-					}
-				})
+				.doFinally(finallyAction)
 				.subscribe(it);
 	}
 
@@ -228,12 +225,10 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	 **********************************
 	 */
 	@Override
-	public void close() throws IOException {
-		synchronized (it) {
-			if 	(!done) {
-				logger.debug("call close()");
-				subscription.cancel();
-			}
+	public final synchronized void close() throws IOException {
+		if (!done) {
+			logger.debug("call close()");
+			subscription.cancel();
 		}
 	}
 
@@ -245,8 +240,18 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	 */
 	@Override
 	protected void finalize() throws Throwable {
-		close();
+		if (subscription != null) {
+			closeQuietly();
+		}
 		super.finalize();
+	}
+
+	private void closeQuietly() {
+		try {
+			close();
+		} catch (Throwable t) {
+			// do nothing.
+		}
 	}
 
 	/**
@@ -266,6 +271,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 		private BlockingSubscriber(int bufSize) {
 			queue = new LinkedBlockingQueue<>(bufSize);
+//			queue = new LinkedBlockingDeque<>(bufSize);
 		}
 
 		/*
@@ -295,6 +301,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 				}
 			} catch (InterruptedException e) {
 				logger.debug("interrupted onNext({})", t);
+//subscription.cancel();
 				done = true;
 			}
 		}
@@ -307,8 +314,12 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		 */
 		@Override
 		public void onError(Throwable t) {
-			logger.trace("call onError() msg={}", t.getMessage());
+			logger.debug("call onError({}} msg={} remain queue={}", t.getClass().getSimpleName(), t.getMessage(), queue.size());
 			exception = ExceptionHelper.wrapOrThrow(t);
+			if (!isDelayError) {
+				queue.clear();
+				done = true;
+			}
 		}
 
 		/*
@@ -319,7 +330,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		 */
 		@Override
 		public void onComplete() {
-			logger.trace("call onComplete()");
+			logger.debug("call onComplete()");
 		}
 
 		/*
@@ -330,17 +341,23 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		 */
 		@Override
 		public boolean hasNext() {
-			if (exception != null) {
-				if (!isDelayError || queue.isEmpty()) {
-					queue.clear();
-					throw exception;
+			while (true) {
+				try {
+					nextVal = queue.poll(100, TimeUnit.MILLISECONDS);
+					if (nextVal != null) break;
+				} catch (InterruptedException ie) {
+//					logger.debug("interrupted in hasNext()");
 				}
-			}
 
-			try {
-				while ((nextVal = queue.poll(100, TimeUnit.MILLISECONDS)) == null && !done);
-			} catch (InterruptedException ie) {
-				done = true;
+				if (exception != null) {
+					if (!isDelayError || (isDelayError && queue.isEmpty())) {
+//						logger.debug("in hasNext() throw Exception={}", exception.getClass().getSimpleName());
+						throw exception;
+					}
+//					logger.debug("continue hasNext() exception={} queue={} nextVal={}", exception != null, queue.size(), nextVal);
+				} else if (done) {
+					break;
+				}
 			}
 			return nextVal != null;
 		}

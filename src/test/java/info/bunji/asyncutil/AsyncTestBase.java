@@ -4,6 +4,7 @@
 package info.bunji.asyncutil;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
@@ -48,6 +49,7 @@ public abstract class AsyncTestBase {
 
 		private String prefix = "";
 		private int dataCnt = 1000;
+		private long interval = 0;
 		private Exception t = null;
 		private int errCnt = Integer.MIN_VALUE;
 
@@ -71,8 +73,14 @@ public abstract class AsyncTestBase {
 			return this;
 		}
 
+		public TestAsyncProc setInterval(long interval) {
+			this.interval = interval;
+			return this;
+		}
+
 		@Override
 		protected void execute() throws Exception {
+			List<String> nullList = null;
 			logger.debug("start execute().");
 			int i = 0;
 			try {
@@ -81,26 +89,32 @@ public abstract class AsyncTestBase {
 						throw t;
 					}
 					//i++;
-					//String s = String.format("%05d", i);
-					//append(s);
-					append(Arrays.asList(
-								String.format("%s%05d", prefix, ++i),
-								String.format("%s%05d", prefix, ++i)
-							));
+					//append(String.format("%s%05d", prefix, i));
+
+					if (i < (dataCnt - 2) && i < (errCnt - 2)) {
+						append(Arrays.asList(
+									String.format("%s%05d", prefix, ++i),
+									String.format("%s%05d", prefix, ++i)
+								));
+					} else {
+						append(String.format("%s%05d", prefix, ++i));
+					}
 
 					if ((i % 200) == 0) {
 						logger.trace("executing {}.", i);
+						append(nullList);
 					}
-					//Thread.sleep(1);
+
+					if (interval > 0) Thread.sleep(interval);
 				}
 			} finally {
-				logger.debug("execute finished. i={} isCancelled={}", i, isCancelled());
+				logger.debug("execute finished. i={}", i);
 			}
 		}
 
 		@Override
 		protected void postProcess() {
-			logger.debug("call postProcess()");
+			logger.debug("call postProcess() in {}", getClass().getSimpleName());
 			super.postProcess();
 		}
 	}
@@ -114,9 +128,17 @@ public abstract class AsyncTestBase {
 
 		private int cycleCount = 10;
 		private int count = 0;
+		private Exception t = null;
+		private int errCnt = Integer.MIN_VALUE;
 
 		public TestIntervalProc(long interval) {
 			super(interval);
+		}
+
+		public TestIntervalProc setException(Exception t, int errCnt) {
+			this.t = t;
+			this.errCnt = errCnt;
+			return this;
 		}
 
 		public TestIntervalProc setCycleCount(int cycleCount) {
@@ -125,9 +147,13 @@ public abstract class AsyncTestBase {
 		}
 
 		@Override
-		protected boolean executeInterval() {
+		protected boolean executeInterval() throws Exception {
 			count++;
 			logger.debug("call executeInterval() : {}", count);
+			if (errCnt == count) {
+				throw t;
+			}
+			append("" + count);
 			return count < cycleCount;
 		}
 

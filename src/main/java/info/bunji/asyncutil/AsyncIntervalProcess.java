@@ -47,7 +47,8 @@ public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 	@Override
 	protected final void execute() throws Exception {
 		while (true) {
-			if (!executeInterval() || isCancelled()) {
+//			if (!executeInterval() || isCancelled()) {
+			if (!executeInterval() || isDisposed()) {
 				break;
 			}
 			try {
@@ -65,5 +66,5 @@ public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 	 * @return true if continue process, otherwise false
 	 **********************************
 	 */
-	protected abstract boolean executeInterval();
+	protected abstract boolean executeInterval() throws Exception;
 }

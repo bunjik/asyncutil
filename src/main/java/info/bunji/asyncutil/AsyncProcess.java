@@ -15,16 +15,17 @@
  */
 package info.bunji.asyncutil;
 
-import java.util.ArrayList;
 import java.util.EventListener;
 import java.util.Iterator;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.reactivex.FlowableEmitter;
 import io.reactivex.FlowableOnSubscribe;
+import io.reactivex.disposables.Disposable;
 
 /**
  ************************************************
@@ -34,14 +35,17 @@ import io.reactivex.FlowableOnSubscribe;
  * @author f.kinoshita
  ************************************************
  */
-public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
+public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposable {
 
 	/** logger */
 	protected Logger logger = LoggerFactory.getLogger(getClass());
 
 	private FlowableEmitter<T> emitter;
 
-	protected List<Listener> listeners = new ArrayList<>();
+	protected Set<Listener> listeners = new LinkedHashSet<>();
+
+	private volatile boolean isDisposed = false;
+
 
 	/**
 	 **********************************
@@ -53,12 +57,58 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
 
 	/**
 	 **********************************
+	 * implements data processing.
+	 * <br>
+	 * data process and emit values in this method.<br>
+	 * if call {@code append(T)} or {@code append(Iterable<T>)}, apply values to result.
+	 *
+	 * @throws Exception exception
+	 **********************************
+	 */
+	protected abstract void execute() throws Exception;
+
+	/**
+	 **********************************
 	 *
 	 * @return
 	 **********************************
 	 */
-	protected boolean isCancelled() {
-		return emitter.isCancelled();
+	public final ClosableResult<T> run() {
+		return run(true);
+	}
+
+	/**
+	 **********************************
+	 *
+	 * @param delayError
+	 * @return
+	 **********************************
+	 */
+	public final ClosableResult<T> run(boolean delayError) {
+		return new ClosableResult<>(this, delayError);
+	}
+
+	/**
+	 **********************************
+	 *
+	 * @param bufSize
+	 * @return
+	 **********************************
+	 */
+	public final ClosableResult<T> run(int bufSize) {
+		return new ClosableResult<>(this, bufSize);
+	}
+
+	/**
+	 **********************************
+	 *
+	 * @param bufSize
+	 * @param delayError
+	 * @return
+	 **********************************
+	 */
+	public final ClosableResult<T> run(int bufSize, boolean delayError) {
+		return new ClosableResult<>(this, bufSize, delayError);
 	}
 
 	/*
@@ -70,6 +120,7 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
 	@Override
 	public final void subscribe(FlowableEmitter<T> emitter) {
 		this.emitter = emitter.serialize();
+		this.emitter.setDisposable(this);
 
 		try {
 			// fire start event
@@ -81,28 +132,17 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
 			execute();
 
 			// finish process
-			emitter.onComplete();
+			this.emitter.onComplete();
 
-		} catch (ProcessCancelledException t) {
+		} catch (InterruptedException t) {
 			logger.trace("interrupted in execute() {}", t.getMessage());
+		} catch (ProcessCancelledException t) {
+			logger.trace("cancelled in execute() {}", t.getMessage());
 		} catch (Throwable t) {
-			emitter.onError(t);
-		} finally {
-			doPostProcess();
+			logger.warn("exception in execute() {}", t.getClass().getSimpleName());
+			this.emitter.onError(t);
 		}
 	}
-
-	/**
-	 **********************************
-	 * implements data processing.
-	 * <br>
-	 * data process and emit values in this method.<br>
-	 * if call {@code append(T)} or {@code append(List<T>)}, apply values to result.
-	 *
-	 * @throws Exception exception
-	 **********************************
-	 */
-	protected abstract void execute() throws Exception;
 
 	/**
 	 **********************************
@@ -113,7 +153,7 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
 	 * @param values process result values
 	 **********************************
 	 */
-	protected final void append(Iterable<T> values) throws InterruptedException {
+	protected final void append(Iterable<T> values) throws ProcessCancelledException {
 		if (values != null) {
 			Iterator<T> it = values.iterator();
 			while (it.hasNext()) {
@@ -131,15 +171,16 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
 	 */
 	protected final void append(T value) throws ProcessCancelledException {
 		try {
-			boolean isCancelled = false;
-			while (!(isCancelled = emitter.isCancelled()) && emitter.requested() == 0L) {
-				Thread.sleep(50);
+			while (!isDisposed && emitter.requested() == 0L) {
+				Thread.sleep(100);
 			}
-			if (isCancelled) {
-				throw new ProcessCancelledException("already cancelled(" + value + ")");
+			if (isDisposed) {
+				logger.debug("dispose in append(" + value + ")");
+				throw new ProcessCancelledException("disposed append(" + value + ")");
 			}
 			emitter.onNext(value);
 		} catch (InterruptedException ie) {
+			logger.debug("interrupted in append({})", value);
 			throw new ProcessCancelledException("interrupted append(" + value + ")");
 		}
 	}
@@ -153,14 +194,29 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
 		// do nothing.
 	}
 
-	/**
+	/*
 	 **********************************
-	 *
-	 * @return
+	 * (non Javadoc)
+	 * @see io.reactivex.disposables.Disposable#dispose()
 	 **********************************
 	 */
-	public final ClosableResult<T> run() {
-		return new ClosableResult<>(this);
+	@Override
+	public final void dispose() {
+		//logger.trace("call dispose() isCancelled={}", emitter.isCancelled());
+		doPostProcess();
+		isDisposed = true;
+	}
+
+	/*
+	 **********************************
+	 * (non Javadoc)
+	 * @see io.reactivex.disposables.Disposable#isDisposed()
+	 **********************************
+	 */
+	@Override
+	public final boolean isDisposed() {
+		//logger.trace("call isDisposed() isCancelled={}", emitter.isCancelled());
+		return isDisposed;
 	}
 
 	/**
@@ -170,7 +226,6 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T> {
 	 */
 	private final void doPostProcess() {
 		try {
-			// TODO 反転は不要？
 			//Collections.reverse(listeners);
 			for (Listener l : listeners) {
 				l.onFinish();
