@@ -47,7 +47,6 @@ public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 	@Override
 	protected final void execute() throws Exception {
 		while (true) {
-//			if (!executeInterval() || isCancelled()) {
 			if (!executeInterval() || isDisposed()) {
 				break;
 			}

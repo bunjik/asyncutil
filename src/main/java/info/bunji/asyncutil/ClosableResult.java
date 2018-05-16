@@ -81,7 +81,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	private final Action finallyAction = new Action() {
 		@Override
 		public void run() throws Exception {
-			logger.debug("call doFinally() remain queue={} done={}", it.queueSize(), done);
+			//logger.trace("call doFinally() remain queue={} done={}", it.queueSize(), done);
 			done = true;
 		}
 	};
@@ -187,7 +187,6 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		it = new BlockingSubscriber(128);
 		UnicastProcessor
 				.merge(procs, 1)
-				//.observeOn(Schedulers.newThread(), isDelayError, OBSERVE_BUF)
 				.subscribeOn(Schedulers.newThread())
 				.doFinally(finallyAction)
 				.subscribe(it);
@@ -227,7 +226,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	@Override
 	public final synchronized void close() throws IOException {
 		if (!done) {
-			logger.debug("call close()");
+			//logger.trace("call close()");
 			subscription.cancel();
 		}
 	}
@@ -271,7 +270,6 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 		private BlockingSubscriber(int bufSize) {
 			queue = new LinkedBlockingQueue<>(bufSize);
-//			queue = new LinkedBlockingDeque<>(bufSize);
 		}
 
 		/*
@@ -282,7 +280,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		 */
 		@Override
 		public void onSubscribe(Subscription s) {
-			logger.trace("call onSubscribe()");
+			//logger.trace("call onSubscribe()");
 			subscription = s;
 			subscription.request(Long.MAX_VALUE);
 		}
@@ -297,11 +295,10 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		public void onNext(T t) {
 			try {
 				while(!queue.offer(t, 500, TimeUnit.MILLISECONDS)) {
-					logger.debug("wait for queue space.");;
+					logger.trace("wait for queue space.");;
 				}
 			} catch (InterruptedException e) {
-				logger.debug("interrupted onNext({})", t);
-//subscription.cancel();
+				logger.trace("interrupted onNext({})", t);
 				done = true;
 			}
 		}
@@ -314,7 +311,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		 */
 		@Override
 		public void onError(Throwable t) {
-			logger.debug("call onError({}} msg={} remain queue={}", t.getClass().getSimpleName(), t.getMessage(), queue.size());
+			//logger.trace("call onError({}} msg={} remain queue={}", t.getClass().getSimpleName(), t.getMessage(), queue.size());
 			exception = ExceptionHelper.wrapOrThrow(t);
 			if (!isDelayError) {
 				queue.clear();
@@ -330,7 +327,8 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		 */
 		@Override
 		public void onComplete() {
-			logger.debug("call onComplete()");
+			// do nothing.
+			//logger.trace("call onComplete()");
 		}
 
 		/*
@@ -346,15 +344,15 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 					nextVal = queue.poll(100, TimeUnit.MILLISECONDS);
 					if (nextVal != null) break;
 				} catch (InterruptedException ie) {
-//					logger.debug("interrupted in hasNext()");
+					//logger.trace("interrupted in hasNext()");
 				}
 
 				if (exception != null) {
 					if (!isDelayError || (isDelayError && queue.isEmpty())) {
-//						logger.debug("in hasNext() throw Exception={}", exception.getClass().getSimpleName());
+						//logger.trace("in hasNext() throw Exception={}", exception.getClass().getSimpleName());
 						throw exception;
 					}
-//					logger.debug("continue hasNext() exception={} queue={} nextVal={}", exception != null, queue.size(), nextVal);
+					//logger.trace("continue hasNext() exception={} queue={} nextVal={}", exception != null, queue.size(), nextVal);
 				} else if (done) {
 					break;
 				}
@@ -393,8 +391,8 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 			nextVal = null;
 		}
 
-		final int queueSize() {
-			return queue.size();
-		}
+//		final int queueSize() {
+//			return queue.size();
+//		}
 	}
 }

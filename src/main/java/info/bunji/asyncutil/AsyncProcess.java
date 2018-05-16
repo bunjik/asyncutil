@@ -69,8 +69,8 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 
 	/**
 	 **********************************
-	 *
-	 * @return
+	 * execute process.
+	 * @return iteratable result
 	 **********************************
 	 */
 	public final ClosableResult<T> run() {
@@ -79,9 +79,9 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 
 	/**
 	 **********************************
-	 *
-	 * @param delayError
-	 * @return
+	 * execute process.
+	 * @param delayError indicates if the onError notification may not cut ahead of onNext notification on the other side of the scheduling boundary. If true a sequence ending in onError will be replayed in the same order as was received from upstream
+	 * @return iteratable result
 	 **********************************
 	 */
 	public final ClosableResult<T> run(boolean delayError) {
@@ -90,9 +90,9 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 
 	/**
 	 **********************************
-	 *
-	 * @param bufSize
-	 * @return
+	 * execute process.
+	 * @param bufSize the size of the buffer size
+	 * @return iteratable result
 	 **********************************
 	 */
 	public final ClosableResult<T> run(int bufSize) {
@@ -101,10 +101,10 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 
 	/**
 	 **********************************
-	 *
-	 * @param bufSize
-	 * @param delayError
-	 * @return
+	 * execute process.
+	 * @param bufSize the size of the buffer size
+	 * @param delayError indicates if the onError notification may not cut ahead of onNext notification on the other side of the scheduling boundary. If true a sequence ending in onError will be replayed in the same order as was received from upstream
+	 * @return iteratable result
 	 **********************************
 	 */
 	public final ClosableResult<T> run(int bufSize, boolean delayError) {
@@ -139,7 +139,7 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 		} catch (ProcessCancelledException t) {
 			logger.trace("cancelled in execute() {}", t.getMessage());
 		} catch (Throwable t) {
-			logger.warn("exception in execute() {}", t.getClass().getSimpleName());
+			logger.trace("exception in execute() {}", t.getClass().getSimpleName());
 			this.emitter.onError(t);
 		}
 	}
@@ -175,12 +175,12 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 				Thread.sleep(100);
 			}
 			if (isDisposed) {
-				logger.debug("dispose in append(" + value + ")");
+				//logger.debug("dispose in append(" + value + ")");
 				throw new ProcessCancelledException("disposed append(" + value + ")");
 			}
 			emitter.onNext(value);
 		} catch (InterruptedException ie) {
-			logger.debug("interrupted in append({})", value);
+			//logger.debug("interrupted in append({})", value);
 			throw new ProcessCancelledException("interrupted append(" + value + ")");
 		}
 	}

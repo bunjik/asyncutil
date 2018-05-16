@@ -12,3 +12,44 @@ RxJava based asynchronous processing utility.
 
 1. 非同期にデータを順次処理したい場合
 2. 大量のデータを順次処理したい場合
+
+## Example code
+
+### 1. process class
+```Java
+public class DbExportProcess extends AsyncProcess<String> {
+
+    private Connection conn = null;
+
+    // Async execure process.
+    @Override
+    public void execute() {
+        conn = DriverManager.getConnection("jdbc:xxxxx:xxx");
+        Statement stmt = conn.createStatement();
+        ResultSet rs = stmt.executeQuery("SELECT * FROM TEST;");
+        while (rs.next()) {
+            // emit value
+            append(re.getString("name"));
+        }
+    }
+
+    @Overide
+    public void close() throws IOExcption {
+      if (conn != null) {
+          conn.close();
+      }
+    }
+}
+```
+
+### 2. run processs
+```Java
+DbExportProcess proc = new DbExportProcess();
+try (ClosableResult rersults : proc.run()) {
+    for (String name : results) {
+
+    }
+} catch (IOException ioe) {
+    ioe.printStackTrace();
+}
+```
