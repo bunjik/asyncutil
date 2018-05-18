@@ -24,7 +24,7 @@ package info.bunji.asyncutil;
  */
 public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 
-	/** processing interval(ms) */
+	/** processing interval(ms). */
 	private long interval;
 
 	/**

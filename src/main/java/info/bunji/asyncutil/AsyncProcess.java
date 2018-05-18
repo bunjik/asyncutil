@@ -46,12 +46,6 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 
 	private volatile boolean isDisposed = false;
 
-
-	/**
-	 **********************************
-	 *
-	 **********************************
-	 */
 	public AsyncProcess() {
 	}
 
@@ -147,7 +141,7 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 	/**
 	 **********************************
 	 * emit values to AsyncResult.
-	 *
+	 * <br>
 	 * remove values if emitted.
 	 *
 	 * @param values process result values
@@ -221,7 +215,7 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 
 	/**
 	 **********************************
-	 *
+	 * call process finished.
 	 **********************************
 	 */
 	private final void doPostProcess() {
@@ -249,18 +243,18 @@ public abstract class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposa
 
 	/**
 	 **********************************
-	 * event listener interface
+	 * event listener interface.
 	 **********************************
 	 */
 	public static interface Listener extends EventListener {
 
 		/**
-		 * before process start
+		 * before process start.
 		 */
 		void onStart();
 
 		/**
-		 * after process finished
+		 * after process finished.
 		 */
 		void onFinish();
 	}

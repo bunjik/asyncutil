@@ -42,8 +42,8 @@ import io.reactivex.schedulers.Schedulers;
 /**
  ************************************************
  * aync execute result.
- * <p>
- * iterate access processed result.<br>
+ *
+ * <p>iterate access processed result.<br>
  * return result to immidiate, after call {@code new ClosaleResult()}.<br>
  * usage: (use try-with-resource):
  * <pre>
@@ -61,11 +61,12 @@ import io.reactivex.schedulers.Schedulers;
  */
 public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
+	@SuppressWarnings("unused")
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	private Subscription subscription = null;
 
-	/** result subscriber and Iterator */
+	/** result subscriber and Iterator. */
 	private BlockingSubscriber it;
 
 	private boolean isDelayError = true;
@@ -88,6 +89,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 	/**
 	 **********************************
+	 * execute process.
 	 * @param asyncProc async process
 	 **********************************
 	 */
@@ -97,6 +99,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 	/**
 	 **********************************
+	 * execute process.
 	 * @param asyncProc async process
 	 * @param delayError indicates if the onError notification may not cut ahead of onNext notification on the other side of the scheduling boundary. If true a sequence ending in onError will be replayed in the same order as was received from upstream
 	 **********************************
@@ -107,6 +110,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 	/**
 	 **********************************
+	 * execute process.
 	 * @param asyncProc async process
 	 * @param bufSize size of buffer
 	 **********************************
@@ -117,6 +121,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 	/**
 	 **********************************
+	 * execute process.
 	 * @param asyncProc async process
 	 * @param bufSize size of buffer
 	 * @param delayError indicates if the onError notification may not cut ahead of onNext notification on the other side of the scheduling boundary. If true a sequence ending in onError will be replayed in the same order as was received from upstream
@@ -128,6 +133,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 	/**
 	 **********************************
+	 * result from Iterarable instance.
 	 * @param source iterable value
 	 **********************************
 	 */
@@ -137,6 +143,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 	/**
 	 **********************************
+	 * result from Iterarable instance.
 	 * @param source iterable values
 	 * @param bufSize the size of the buffer size
 	 **********************************
@@ -147,12 +154,14 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 	/**
 	 **********************************
-	 * @param flowable
+	 * execute frowable.
+	 * @param flowable execute flowable instance
 	 * @param bufSize the size of the buffer size
 	 * @param delayError indicates if the onError notification may not cut ahead of onNext notification on the other side of the scheduling boundary. If true a sequence ending in onError will be replayed in the same order as was received from upstream
+	 * @param scheduler execute scheduler
 	 **********************************
 	 */
-	private ClosableResult(Flowable<T> flowable, int bufSize, boolean delayError, Scheduler sheduler) {
+	private ClosableResult(Flowable<T> flowable, int bufSize, boolean delayError, Scheduler scheduler) {
 		if (bufSize <= 0) {
 			closeQuietly();
 			throw new IllegalArgumentException("buffer size is greater than 0.");
@@ -160,7 +169,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 		isDelayError = delayError;
 		it = new BlockingSubscriber(bufSize);
-		flowable.observeOn(sheduler, delayError, OBSERVE_BUF)
+		flowable.observeOn(scheduler, delayError, OBSERVE_BUF)
 				.subscribeOn(Schedulers.newThread())
 				.doFinally(finallyAction)
 				.subscribe(it);
@@ -213,7 +222,9 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 	 */
 	public List<T> toList() {
 		List<T> results = new ArrayList<>();
-		for (T val : this) results.add(val);
+		for (T val : this) {
+			results.add(val);
+		}
 		return results;
 	}
 
@@ -255,8 +266,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 
 	/**
 	 ********************************************
-	 *
-	 *
+	 * reslt queue subscriber class.
 	 ********************************************
 	 */
 	private final class BlockingSubscriber implements Subscriber<T>, Iterator<T> {
@@ -294,7 +304,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		@Override
 		public void onNext(T t) {
 			try {
-				while(!queue.offer(t, 500, TimeUnit.MILLISECONDS)) {
+				while (!queue.offer(t, 500, TimeUnit.MILLISECONDS)) {
 					logger.trace("wait for queue space.");;
 				}
 			} catch (InterruptedException e) {
@@ -342,7 +352,9 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 			while (true) {
 				try {
 					nextVal = queue.poll(100, TimeUnit.MILLISECONDS);
-					if (nextVal != null) break;
+					if (nextVal != null) {
+						break;
+					}
 				} catch (InterruptedException ie) {
 					//logger.trace("interrupted in hasNext()");
 				}
@@ -368,7 +380,7 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		 */
 		@Override
 		public T next() {
-			try  {
+			try {
 				if (nextVal == null) {
 					if (!hasNext()) {
 						throw new NoSuchElementException();
@@ -390,9 +402,5 @@ public final class ClosableResult<T> implements Closeable, Iterable<T> {
 		public void remove() {
 			nextVal = null;
 		}
-
-//		final int queueSize() {
-//			return queue.size();
-//		}
 	}
 }

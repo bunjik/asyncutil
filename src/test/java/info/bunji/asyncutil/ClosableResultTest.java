@@ -126,7 +126,9 @@ public class ClosableResultTest extends AsyncTestBase {
 			spyResults = results;
 			for (String val : results) {
 				i++;
-				if ((i % 100) == 0)	logger.debug("get [{}]", val);
+				if ((i % 100) == 0) {
+					logger.debug("get [{}]", val);
+				}
 			}
 		} finally {
 			logger.debug("get {} items.", i);
@@ -139,7 +141,7 @@ public class ClosableResultTest extends AsyncTestBase {
 		}
 	}
 
-	@Test(expected=IllegalArgumentException.class)
+	@Test(expected = IllegalArgumentException.class)
 	public void testExecute_errorEmptyProcessList() throws Exception {
 		List<TestAsyncProc> procList = new ArrayList<>();
 
@@ -152,7 +154,7 @@ public class ClosableResultTest extends AsyncTestBase {
 		}
 	}
 
-	@Test(expected=IllegalArgumentException.class)
+	@Test(expected = IllegalArgumentException.class)
 	public void testExecute_errorNullProcessList() throws Exception {
 		int i = 0;
 		try (ClosableResult<String> results = spy(new ClosableResult<String>((List<TestAsyncProc>) null))) {
@@ -248,7 +250,7 @@ public class ClosableResultTest extends AsyncTestBase {
 		}
 	}
 
-	@Test(expected=IllegalStateException.class)
+	@Test(expected = IllegalStateException.class)
 	public void testExecute_delayError() throws Exception {
 
 		TestAsyncProc proc = spy(new TestAsyncProc()
@@ -284,8 +286,12 @@ public class ClosableResultTest extends AsyncTestBase {
 			spyResults = results;
 			for (Object val : results) {
 				i++;
-				if ((i % 100) == 0) logger.debug("get [{}]", val);
-				if (i == 500) break;
+				if ((i % 100) == 0) {
+					logger.debug("get [{}]", val);
+				}
+				if (i == 500) {
+					break;
+				}
 			}
 		} finally {
 			Thread.sleep(100);
@@ -296,7 +302,7 @@ public class ClosableResultTest extends AsyncTestBase {
 		}
 	}
 
-	@Test(expected=NoSuchElementException.class)
+	@Test(expected = NoSuchElementException.class)
 	public void testExecute_iteratorNoNext() throws Exception {
 
 		TestAsyncProc proc = spy(new TestAsyncProc().setDataCnt(1000));

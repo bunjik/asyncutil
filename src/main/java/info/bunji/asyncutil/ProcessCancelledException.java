@@ -16,7 +16,10 @@
 package info.bunji.asyncutil;
 
 /**
- * @author bunji
+ ************************************************
+ *
+ * @author f.kinoshita
+ ************************************************
  */
 public class ProcessCancelledException extends RuntimeException {
 
