@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>info.bunji</groupId>
 	<artifactId>asyncutil</artifactId>
-	<version>1.0.0</version>
+	<version>1.0.1-SNAPSHOT</version>
 	<url>http://bunjik.github.io/asyncutil/</url>
 
 	<name>asyncutil</name>
@@ -27,7 +27,7 @@
 		<connection>scm:git:git@github.com:bunjik/asyncutil.git</connection>
 		<developerConnection>scm:git:ssh://git@github.com/bunjik/asyncutil.git</developerConnection>
 		<url>git@github.com:bunjik/asyncutil.git</url>
-		<tag>asyncutil-1.0.0</tag>
+		<tag>${project.version}</tag>
 	</scm>
 
 	<developers>
