@@ -22,13 +22,14 @@ package info.bunji.asyncutil;
  * @author Fumiharu Kinoshita
  ************************************************
  */
-public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
+public abstract class AsyncIntervalProcess<T> extends AbstractAsyncProcess<T> {
 
 	/** processing interval(ms). */
 	private long interval;
 
 	/**
 	 **********************************
+	 * consrctor.
 	 * @param interval processing interval(millis)
 	 **********************************
 	 */
@@ -46,15 +47,11 @@ public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 	 */
 	@Override
 	protected final void execute() throws Exception {
-		while (true) {
-			if (!executeInterval() || isDisposed()) {
+		while (!isDisposed()) {
+			if (!executeInterval()) {
 				break;
 			}
-			try {
-				Thread.sleep(interval);
-			} catch (InterruptedException ie) {
-				throw new ProcessCancelledException();
-			}
+			Thread.sleep(interval);
 		}
 	}
 
