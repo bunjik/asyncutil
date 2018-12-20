@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Fumiharu Kinoshita
+ * Copyright 2016-2018 Fumiharu Kinoshita
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,25 +20,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
-import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import info.bunji.asyncutil.functions.ExecFunc;
+import info.bunji.asyncutil.AsyncProc.ExecuteFunc;
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
-import io.reactivex.FlowableSubscriber;
-import io.reactivex.exceptions.MissingBackpressureException;
-import io.reactivex.internal.subscriptions.SubscriptionHelper;
-import io.reactivex.internal.util.ExceptionHelper;
+import io.reactivex.functions.Action;
+import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 
 /**
@@ -58,328 +48,290 @@ import io.reactivex.schedulers.Schedulers;
  * }
  * </pre>
  * @author f.kinoshita
- * @param <T> result type
+ * @param <T> result element type
  ************************************************
  */
 public final class ClosableResult<T> implements Iterable<T>, Closeable {
+	/** logger */
+    protected final Logger logger = LoggerFactory.getLogger(getClass());
+    /** execute process */
+    private final AsyncProc<T> asyncProc;
 
-	protected final Logger logger = LoggerFactory.getLogger(getClass());
+    private final Iterator<T> iterator;
 
-	private final AsyncProcess<T> process;
+    private volatile boolean isClosed = false;
 
-	private Iterator<T> iterator;
+    protected static final int DEFAULT_BUF_SIZE = 4096;
 
-	private volatile boolean isClosed = false;
+    /**
+     **********************************
+     * @param proc execute AsyncProcess instance
+     * @deprecated compatibility for previous versions. use {@link AsyncProcess#run()}
+     **********************************
+     */
+    public ClosableResult(AsyncProcess<T> proc) {
+        this(proc, DEFAULT_BUF_SIZE, false);
+    }
 
-	protected static final int DEFAULT_BUF_SIZE = 4096;
+    /**
+     **********************************
+     * @param proc execute AsyncProcess instance
+     * @param bufSize append buffer size
+     * @deprecated compatibility for previous versions. use {@link AsyncProcess#run(int)}
+     **********************************
+     */
+    public ClosableResult(AsyncProcess<T> proc, int bufSize) {
+        this(proc, bufSize, false);
+    }
 
-	/**
-	 **********************************
-	 * constructor.
-	 * @param proc async process
-	 **********************************
-	 */
-	public ClosableResult(AsyncProcess<T> proc) {
-		this(proc, DEFAULT_BUF_SIZE, true);
+    /**
+     **********************************
+     * @param proc execute AsyncProcess instance
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     * @deprecated compatibility for previous versions. use {@link AsyncProcess#run(boolean)}
+     **********************************
+     */
+    public ClosableResult(AsyncProcess<T> proc, boolean isDelayError) {
+        this(proc, DEFAULT_BUF_SIZE, isDelayError);
+    }
+
+    /**
+     **********************************
+     * @param proc execute AsyncProcess instance
+     * @param bufSize append buffer size
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     * @deprecated compatibility for previous versions. use {@link AsyncProcess#run(int, boolean)}
+     **********************************
+     */
+    public ClosableResult(AsyncProcess<T> proc, int bufSize, boolean isDelayError) {
+        this(proc.getAsyncProc(), DEFAULT_BUF_SIZE, isDelayError);
+    }
+
+    /**
+     **********************************
+     * @param asyncProc execute AsyncProc instance
+     **********************************
+     */
+    public ClosableResult(AsyncProc<T> asyncProc) {
+        this(asyncProc, DEFAULT_BUF_SIZE);
+    }
+
+    /**
+     **********************************
+     * @param asyncProc execute AsyncProc instance
+     * @param bufSize append buffer size
+     **********************************
+     */
+    public ClosableResult(AsyncProc<T> asyncProc, int bufSize) {
+        this(asyncProc, bufSize, false);
+    }
+
+    /**
+     **********************************
+     * @param asyncProc execute AsyncProc instance
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     **********************************
+     */
+    public ClosableResult(AsyncProc<T> asyncProc, boolean isDelayError) {
+        this(asyncProc, DEFAULT_BUF_SIZE, isDelayError);
+    }
+
+    /**
+     **********************************
+     * @param asyncProc execute AsyncProc instance
+     * @param bufSize append buffer size
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     **********************************
+     */
+	public ClosableResult(AsyncProc<T> asyncProc, int bufSize, boolean isDelayError) {
+
+		logger.trace("exec proc : bufSize={} / delayError={}", bufSize, isDelayError);
+
+        this.asyncProc = asyncProc;
+        Flowable<T> f = Flowable.create(asyncProc, BackpressureStrategy.BUFFER)
+	                            .doOnRequest(asyncProc.getExecFunc())
+                                .doOnError(new Consumer<Throwable>() {
+                                    @Override
+                                    public void accept(Throwable t) throws Exception {
+                                        logger.error("error occurred now. [{}]", t.toString());
+                                    }
+                                 })
+                                .observeOn(Schedulers.newThread(), isDelayError, bufSize)
+                                .subscribeOn(Schedulers.newThread(), false);
+//	    // set post action
+//	    if (asyncProc.getPostFunc() != null) {
+//	    	//f = f.doFinally(asyncProc.getPostFunc());
+//	        //f = f.doOnTerminate(asyncProc.getPostFunc());
+//	    }
+
+ 	    this.iterator = new BlockingFlowable<>(f, bufSize, isDelayError).iterator();
 	}
 
-	/**
-	 **********************************
-	 * construct with bufsize.
-	 * @param proc async process
-	 * @param bufSize buffer size
-	 **********************************
-	 */
-	public ClosableResult(AsyncProcess<T> proc, int bufSize) {
-		this(proc, bufSize, true);
-	}
+    /**
+     **********************************
+     * @param execFunc execute callback
+     **********************************
+     */
+    public ClosableResult(ExecuteFunc<T> execFunc) {
+        this(new AsyncProc<T>().setExecFunc(execFunc));
+    }
 
-	/**
-	 **********************************
-	 * constructor.
-	 * @param proc async process
-	 * @param isDelayError error notification delay to read error data
-	 **********************************
-	 */
-	public ClosableResult(AsyncProcess<T> proc, boolean isDelayError) {
-		this(proc, DEFAULT_BUF_SIZE, isDelayError);
-	}
+    /**
+     **********************************
+     * @param execFunc execute callback
+     * @param bufSize append buffer size
+     **********************************
+     */
+    public ClosableResult(ExecuteFunc<T> execFunc, int bufSize) {
+        this(new AsyncProc<T>().setExecFunc(execFunc), bufSize);
+    }
 
-	/**
-	 **********************************
-	 * constructor.
-	 * @param proc async process
-	 * @param bufSize buffer size
-	 * @param isDelayError indicates if the onError notification may not cut ahead of onNext notification
-	 *                   on the other side of the scheduling boundary. If true a sequence ending in onError
-	 *                   will be replayed in the same order as was received from upstream
-	 **********************************
-	 */
-	public ClosableResult(AsyncProcess<T> proc, int bufSize, boolean isDelayError) {
-		if (bufSize <= 0) {
-			throw new IllegalArgumentException("bufSize > 0 required but it was " + bufSize);
-		}
-		logger.trace("bufsize={} / delayError={}", bufSize, isDelayError);
+    /**
+     **********************************
+     * @param execFunc execute callback
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     **********************************
+     */
+    public ClosableResult(ExecuteFunc<T> execFunc, boolean isDelayError) {
+        this(new AsyncProc<T>().setExecFunc(execFunc), isDelayError);
+    }
 
-		this.process = proc;
-		Flowable<T> f = Flowable.create(proc, BackpressureStrategy.ERROR)
-							.observeOn(Schedulers.newThread(), isDelayError)
-							//.doOnRequest(proc.execCallback)
-//							.doOnTerminate(new Action() {
-//								@Override
-//								public void run() throws Exception {
-//									logger.debug("call doOnTerminate()");
-//									throw new Exception("exception in doOnTerminate()");
-//								}
-//							})
-							.subscribeOn(Schedulers.newThread(), false);
+    /**
+     **********************************
+     * @param execFunc execute callback
+     * @param bufSize append buffer size
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     **********************************
+     */
+    public ClosableResult(ExecuteFunc<T> execFunc, int bufSize, boolean isDelayError) {
+        this(new AsyncProc<T>().setExecFunc(execFunc), isDelayError);
+    }
 
-		this.iterator = new FlowableIterable<>(f, bufSize, isDelayError).iterator();
-	}
+    /**
+     **********************************
+     * @param execFunc execute callback
+     * @param postFunc postProcess callback
+     **********************************
+     */
+    public ClosableResult(ExecuteFunc<T> execFunc, Action postFunc) {
+        this(new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc));
+    }
 
-	/**
-	 **********************************
-	 * constructor.
-	 * @param source the source Iterable sequence
-	 **********************************
-	 */
-	public ClosableResult(Iterable<T> source) {
-		this(source, DEFAULT_BUF_SIZE, true);
-	}
+    /**
+     **********************************
+     * @param execFunc execute callback
+     * @param postFunc postProcess callback
+     * @param bufSize append buffer size
+     **********************************
+     */
+    public ClosableResult(ExecuteFunc<T> execFunc, Action postFunc, int bufSize) {
+        this(new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc), bufSize);
+    }
 
-	/**
-	 **********************************
-	 * コンストラクタ.
-	 * @param source the source Iterable sequence
-	 * @param bufSize buffer size
-	 **********************************
-	 */
-	public ClosableResult(Iterable<T> source, int bufSize) {
-		this(source, bufSize, true);
-	}
+    /**
+     **********************************
+     * @param execFunc execute callback
+     * @param postFunc postProcess callback
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     **********************************
+     */
+    public ClosableResult(ExecuteFunc<T> execFunc, Action postFunc, boolean isDelayError) {
+      this(new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc), isDelayError);
+    }
 
-	/**
-	 **********************************
-	 * constructor.
-	 * @param source the source Iterable sequence
-	 * @param bufSize buffeer size
-	 * @param isDelayError indicates if the onError notification may not cut ahead of onNext notification
-	 *                   on the other side of the scheduling boundary. If true a sequence ending in onError
-	 *                   will be replayed in the same order as was received from upstream
-	 **********************************
-	 */
-	public ClosableResult(Iterable<T> source, int bufSize, boolean isDelayError) {
-		this.process = null;
+    /**
+     **********************************
+     * @param execFunc execute callback
+     * @param postFunc postProcess callback
+     * @param bufSize append buffer size
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     **********************************
+     */
+    public ClosableResult(ExecuteFunc<T> execFunc, Action postFunc, int bufSize, boolean isDelayError) {
+        this(new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc), bufSize, isDelayError);
+    }
 
-		Flowable<T> f = Flowable.fromIterable(source)
-				.observeOn(Schedulers.newThread(), isDelayError)
-				.subscribeOn(Schedulers.newThread(), false);
+public static <T> ClosableResult<T> run(ExecuteFunc<T> execFunc) {
+    return new ClosableResult<T>(new AsyncProc<T>().setExecFunc(execFunc));
+}
 
-		this.iterator = new FlowableIterable<>(f, bufSize, isDelayError).iterator();
-	}
+    /**
+      **********************************
+     * @param source the source Iterable sequence
+     **********************************
+     */
+    public ClosableResult(Iterable<T> source) {
+        this(source, DEFAULT_BUF_SIZE, true);
+    }
 
-	// TODO chain process?
-	public ClosableResult(List<? extends AsyncProcess<T>> pprocList) {
-		throw new RuntimeException("not implemented yet.");
-	}
+    /**
+     **********************************
+     * @param source the source Iterable sequence
+     * @param bufSize buffer size
+     **********************************
+     */
+    public ClosableResult(Iterable<T> source, int bufSize) {
+        this(source, bufSize, true);
+    }
 
-	// instant method for lambda
-	public static <T> ClosableResult<T> create(ExecFunc<T> execFunc) {
-		return create(execFunc, DEFAULT_BUF_SIZE);
-	}
+    /**
+     **********************************
+     * @param source the source Iterable sequence
+     * @param bufSize buffeer size
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     **********************************
+     */
+    public ClosableResult(Iterable<T> source, int bufSize, boolean isDelayError) {
+        this.asyncProc = null;
 
-	// instant method for lambda
-	public static <T> ClosableResult<T> create(ExecFunc<T> execFunc, int bufSize) {
-		return new ClosableResult<T>(new AsyncProcess<T>().setExecute(execFunc), bufSize);
-	}
+        Flowable<T> f = Flowable.fromIterable(source)
+                .observeOn(Schedulers.newThread(), isDelayError)
+                .subscribeOn(Schedulers.newThread(), false);
 
-	// instant method for lambda
-	public static <T> ClosableResult<T> create(ExecFunc<T> execFunc, boolean isDelayError) {
-		return new ClosableResult<T>(new AsyncProcess<T>().setExecute(execFunc), isDelayError);
-	}
+        // generate iterator
+        this.iterator = new BlockingFlowable<>(f, bufSize, isDelayError).iterator();
+    }
 
-	// instant method for lambda
-	public static <T> ClosableResult<T> create(ExecFunc<T> execFunc, int bufSize, boolean isDelayError) {
-		return new ClosableResult<T>(new AsyncProcess<T>().setExecute(execFunc), bufSize, isDelayError);
-	}
+    /**
+     **********************************
+     * get result list(blocking api).
+     * <br>
+     * blocking method.
+     * @return result list
+     **********************************
+     */
+    public List<T> toList() {
+        List<T> results = new ArrayList<>();
+        for (T val : this) {
+            results.add(val);
+        }
+        return results;
+    }
 
+    @Override
+    public Iterator<T> iterator() {
+        return iterator;
+    }
 
-	/**
-	 ********************************************
-	 * blocking iterable class.
-	 * @param <T> element type
-	 ********************************************
-	 */
-	private static final class FlowableIterable<T> implements Iterable<T> {
-		final IteratorSubscriber<T> iterator;
-
-		FlowableIterable(Flowable<T> source, int bufSize, boolean delayError) {
-			iterator = new IteratorSubscriber<>(bufSize, delayError);
-			source.subscribe(iterator);
-		}
-
-		@Override
-		public Iterator<T> iterator() {
-			return iterator;
-		}
-
-		/**
-		 ****************************************
-		 * blocking iterator class.
-		 * @param <T> element type
-		 ****************************************
-		 */
-		private static final class IteratorSubscriber<T>
-										extends AtomicReference<Subscription>
-										implements FlowableSubscriber<T>, Iterator<T> {
-
-			private final BlockingQueue<T> queue;
-			private final long limit;
-			private final Lock lock;
-			private final Condition condition;
-			private volatile boolean done;
-			private final boolean delayError;
-			Throwable error;
-			long produced;
-			long bufSize;
-
-		    IteratorSubscriber(int bufSize, boolean delayError) {
-				this.queue = new LinkedBlockingQueue<>(bufSize);
-				this.bufSize = bufSize;
-				this.limit = bufSize - (bufSize >> 2);
-				this.delayError = delayError;
-				this.lock = new ReentrantLock();
-				this.condition = lock.newCondition();
-			}
-
-			@Override
-			public boolean hasNext() {
-				for (;;) {
-					boolean d = done;
-					boolean isEmpty = queue.isEmpty();
-
-					if (!d && isEmpty) {
-						lock.lock();
-						try {
-							while (!done && queue.isEmpty()) {
-								condition.await();
-							}
-						} catch (InterruptedException ie) {
-							get().cancel();
-							throw ExceptionHelper.wrapOrThrow(ie);	// internal method
-						} finally {
-							lock.unlock();
-						}
-					} else {
-						if (d && isEmpty) {
-							Throwable e = error;
-							if (e != null) {
-								throw ExceptionHelper.wrapOrThrow(e);
-							}
-							return false;
-						}
-						return true;
-					}
-				}
-			}
-
-			@Override
-			public T next() {
-				if (hasNext()) {
-					T value = queue.poll();
-					long p = produced + 1;
-					if (p == limit) {
-						produced = 0;
-						get().request(p);
-					} else {
-						produced = p;
-					}
-					return value;
-				}
-				throw new NoSuchElementException();
-			}
-
-			@Override
-			public void remove() {
-		        throw new UnsupportedOperationException("remove");
-			}
-
-			void signalConsumer() {
-				lock.lock();
-				try {
-					condition.signalAll();
-				} finally {
-					lock.unlock();
-				}
-			}
-
-			@Override
-			public void onNext(T t) {
-				if (!queue.offer(t)) {
-					SubscriptionHelper.cancel(this);
-					// FIXME
-					onError(new MissingBackpressureException("Queue full?!"));
-				} else {
-					signalConsumer();
-				}
-			}
-
-			@Override
-			public void onError(Throwable t) {
-				error = t;
-				done = true;
-				if (!delayError) {
-					queue.clear();
-				}
-				signalConsumer();
-			}
-
-			@Override
-			public void onComplete() {
-				done = true;
-				signalConsumer();
-			}
-
-			@Override
-			public void onSubscribe(Subscription s) {
-				//logger.debug("call onSubscribe()");
-				set(s);
-				s.request(bufSize);
-			}
-		}
-	}
-
-	/**
-	 **********************************
-	 * get result list.
-	 * <br>
-	 * blocking method.
-	 * @return result list
-	 **********************************
-	 */
-	public List<T> toList() {
-		List<T> results = new ArrayList<>();
-		for (T val : this) {
-			results.add(val);
-		}
-		return results;
-	}
-
-	@Override
-	public Iterator<T> iterator() {
-		return iterator;
-	}
-
-	@Override
-	public final void close() throws IOException {
-		if (!isClosed) {
-			isClosed = true;
-			logger.trace("{}.close()", getClass().getSimpleName());
-			if (process != null) {
-				if (!process.isDisposed()) {
-					process.dispose();
-				}
-			}
-		}
-	}
+    @Override
+    public final void close() throws IOException {
+        if (!isClosed) {
+            isClosed = true;
+            logger.trace("{}.close()", getClass().getSimpleName());
+            if (asyncProc != null) {
+                if (!asyncProc.isDisposed()) {
+                    asyncProc.dispose();
+                }
+            }
+        }
+    }
 }

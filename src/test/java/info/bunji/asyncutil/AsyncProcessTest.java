@@ -1,3 +1,18 @@
+/*
+ * Copyright 2016-2018 Fumiharu Kinoshita
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package info.bunji.asyncutil;
 
 import static org.hamcrest.CoreMatchers.is;
@@ -6,9 +21,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.lessThan;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
-import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 import java.util.Iterator;
 import java.util.NoSuchElementException;
@@ -16,64 +28,40 @@ import java.util.NoSuchElementException;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 
-import info.bunji.asyncutil.functions.ListenerFunc;
-
 @FixMethodOrder
 public class AsyncProcessTest extends AsyncTestBase {
 
 	@Test
 	public void testRun() throws Exception {
-		int size = 1920;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size));
+		int size = 10000;
+		IntAsyncProcess proc = new IntAsyncProcess(size);
 		try (ClosableResult<Integer> results = proc.run()) {
-			int cnt = 0;
-			for (int n : results) {
-				if ((n % 200) == 0) logger.debug("read {}", n);
-				cnt++;
-			}
-			assertThat(cnt, is(size));
-		}
-	}
-
-	@Test
-	public void testRun2() throws Exception {
-		int size = 1920;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size));
-		try (ClosableResult<Integer> results = proc.run()) {
-			int cnt = 0;
-			for (int n : results) {
-				if ((n % 200) == 0) logger.debug("read {}", n);
-				cnt++;
-			}
-			assertThat(cnt, is(size));
-		}
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void testRun_nullFunc() throws Exception {
-		AsyncProcess<Integer> proc = AsyncProcess.create(null);
-		try (ClosableResult<Integer> results = proc.run()) {
+			assertThat(results.toList().size(), is(size));
 		}
 	}
 
 	@Test
 	public void testRun_withBufSize() throws Exception {
 		int size = 2000;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size));
+		IntAsyncProcess proc = new IntAsyncProcess(size);
 		try (ClosableResult<Integer> results = proc.run(256)) {
-			int cnt = 0;
-			for (int n : results) {
-				if ((n % 50) == 0) logger.debug("read {}", n);
-				cnt++;
-			}
-			assertThat(cnt, is(size));
+			assertThat(results.toList().size(), is(size));
+		}
+	}
+
+	@Test
+	public void testRun_withDelayError() throws Exception {
+		int size = 10000;
+		IntAsyncProcess proc = new IntAsyncProcess(size);
+		try (ClosableResult<Integer> results = proc.run(true)) {
+			assertThat(results.toList().size(), is(size));
 		}
 	}
 
 	@Test(expected = IllegalStateException.class)
 	public void testRun_delayErrorTrue() throws Exception {
 		int size = 2000;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size).setException(512));
+		IntAsyncProcess proc = new IntAsyncProcess(size).setThrow(512);
 		int cnt = 0;
 		try (ClosableResult<Integer> results = proc.run(1000, true)) {
 			for (int n : results) {
@@ -92,7 +80,7 @@ public class AsyncProcessTest extends AsyncTestBase {
 	@Test(expected = IllegalStateException.class)
 	public void testRun_delayErrorFalse() throws Exception {
 		int size = 2000;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size).setException(512));
+		IntAsyncProcess proc = new IntAsyncProcess(size).setThrow(512);
 		int cnt = 0;
 		try (ClosableResult<Integer> results = proc.run(false)) {
 			for (int n : results) {
@@ -108,7 +96,7 @@ public class AsyncProcessTest extends AsyncTestBase {
 	@Test
 	public void testRun_interrupt_close() throws Exception {
 		int size = 2000;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size));
+		IntAsyncProcess proc = new IntAsyncProcess(size);
 		try (ClosableResult<Integer> results = proc.run(256)) {
 			int cnt = 0;
 			for (int n : results) {
@@ -122,27 +110,10 @@ public class AsyncProcessTest extends AsyncTestBase {
 		}
 	}
 
-	@Test
-	public void testRun_interrupt_dispose() throws Exception {
-		int size = 2000;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size));
-		try (ClosableResult<Integer> results = proc.run(256)) {
-			int cnt = 0;
-			for (int n : results) {
-				if ((n % 100) == 0) logger.debug("read {}", n);
-				// close in loop
-				if (n == 1000) proc.dispose();
-				cnt++;
-			}
-			assertThat(cnt, greaterThanOrEqualTo(1000));
-			assertThat(cnt, lessThan(size));
-		}
-	}
-
 	@Test(expected = IllegalStateException.class)
 	public void testRun_interrupt_exception() throws Exception {
 		int size = 2000;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size).setException(1000));
+		IntAsyncProcess proc = new IntAsyncProcess(size).setThrow(1000);
 		try (ClosableResult<Integer> results = proc.run(256)) {
 			int cnt = 0;
 			for (int n : results) {
@@ -151,37 +122,13 @@ public class AsyncProcessTest extends AsyncTestBase {
 			}
 			assertThat(cnt, greaterThanOrEqualTo(1000));
 			assertThat(cnt, lessThan(size));
-		}
-	}
-
-	@Test
-	public void testRun_startListener() throws Exception {
-		int size = 1000;
-		ListenerFunc startFunc = spy(new TestListenerFunc("call startListener."));
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size)).doStart(startFunc);
-		try (ClosableResult<Integer> results = proc.run()) {
-			assertThat(results.toList().size(), is(size));
-			verify(startFunc, times(1)).run();
-		}
-	}
-
-	@Test
-	public void testRun_finishListener() throws Exception {
-		int size = 1000;
-		TestListenerFunc finishFunc = spy(new TestListenerFunc("call finishListener."));
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size)).doFinish(finishFunc);
-		try (ClosableResult<Integer> results = proc.run()) {
-			assertThat(results.toList().size(), is(size));
-		} finally {
-			Thread.sleep(100);
-			verify(finishFunc, times(1)).run();
 		}
 	}
 
 	@Test(expected = NoSuchElementException.class)
 	public void testRun_nonElementAccess() throws Exception {
 		int size = 100;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size));
+		IntAsyncProcess proc = new IntAsyncProcess(size);
 
 		try (ClosableResult<Integer> results = proc.run()) {
 			assertThat(results.toList().size(), is(size));
@@ -195,23 +142,10 @@ public class AsyncProcessTest extends AsyncTestBase {
 	@Test(expected = UnsupportedOperationException.class)
 	public void testRun_iteratorRemove() throws Exception {
 		int size = 100;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size));
+		IntAsyncProcess proc = new IntAsyncProcess(size);
 		try (ClosableResult<Integer> results = proc.run()) {
 			results.iterator().next();
 			results.iterator().remove();
 		}
-	}
-
-	@Test(expected = IllegalStateException.class)
-	public void testSetExecute_dup() throws Exception {
-		int size = 100;
-		AsyncProcess<Integer> proc = AsyncProcess.create(new TestIntFunc(size));
-		proc.setExecute(new TestIntFunc(size));
-	}
-
-	@Test(expected = IllegalArgumentException.class)
-	public void testSetExecute_null() throws Exception {
-		AsyncProcess<Integer> proc = new AsyncProcess<>();
-		proc.setExecute(null);
 	}
 }

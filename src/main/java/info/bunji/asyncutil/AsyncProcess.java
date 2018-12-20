@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 Fumiharu Kinoshita
+ * Copyright 2016-2018 Fumiharu Kinoshita
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,179 +15,152 @@
  */
 package info.bunji.asyncutil;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.lang.reflect.Method;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import info.bunji.asyncutil.functions.ExecFunc;
-import info.bunji.asyncutil.functions.ListenerFunc;
-import info.bunji.asyncutil.functions.PostProcFunc;
-import io.reactivex.FlowableEmitter;
-import io.reactivex.FlowableOnSubscribe;
-import io.reactivex.disposables.Disposable;
+import info.bunji.asyncutil.AsyncProc.ExecuteFunc;
+import io.reactivex.functions.Action;
 
 /**
  ************************************************
- * aync process base class.(lambda support)
- * @param <T> result type
+ * Async process base class.
+ * <br>
+ * for previous releasse compatible.
  * @author f.kinoshita
  ************************************************
  */
-public class AsyncProcess<T> implements FlowableOnSubscribe<T>, Disposable {
+public abstract class AsyncProcess<T> {
 
-	protected Logger logger = LoggerFactory.getLogger(getClass());
+	/** logger */
+    protected Logger logger = LoggerFactory.getLogger(getClass());
+    /** converted  AsyncProc instance */
+    private final AsyncProc<T> internalProc;
+    /** invoke append method */
+    private static Method appendMethod;
 
-	private FlowableEmitter<T> emitter;
+    static {
+        try {
+            // get append method
+            appendMethod = ExecuteFunc.class.getDeclaredMethod("append", Object.class);
+            appendMethod.setAccessible(true);
+        } catch (Throwable e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	private AtomicBoolean isDisposed = new AtomicBoolean(false);
+    /**
+     **********************************
+     **********************************
+     */
+    public AsyncProcess() {
+        final AsyncProcess<T> process = this;
 
-	private ExecFunc<T> execCallback = null;
+        // wrap execute()
+        ExecuteFunc<T> execFunc = new ExecuteFunc<T>() {
+            @Override
+            public void execute() throws Exception {
+                process.execute();
+            }
+        };
 
-	private PostProcFunc postCallback = PostProcFunc.NOP;
+        // wrap postProcess().
+        Action postFunc = new Action() {
+            @Override
+            public void run() throws Exception {
+                process.postProcess();
+            }
+        };
 
-	private ListenerFunc startCallback = ListenerFunc.NOP;
+        // convert AsyncProc instance
+        internalProc = new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc);
+    }
 
-	private ListenerFunc endCallback = ListenerFunc.NOP;
+    /**
+     **********************************
+     * get internal asyncProc instance.
+     * @return AsyncProc instance
+     **********************************
+     */
+    final AsyncProc<T> getAsyncProc() {
+        return internalProc;
+    }
 
-	public static final <T> AsyncProcess<T> create(ExecFunc<T> callback) {
-		return new AsyncProcess<T>().setExecute(callback);
-	}
+    /**
+     **********************************
+     * execute process impl.
+     * @throws Exception
+     **********************************
+     */
+    protected abstract void execute() throws Exception;
 
-	/**
-	 **********************************
-	 * set execute function.
-	 * @param callback executeFunction
-	 * @return this instance
-	 **********************************
-	 */
-	public AsyncProcess<T> setExecute(ExecFunc<T> callback) {
-		if (callback == null) {
-			throw new IllegalArgumentException("callback  function can not null.");
-		}
-		if (execCallback != null) {
-			throw new IllegalStateException("execute function already set.");
-		}
-		execCallback = callback;
-		return this;
-	}
+    /**
+     **********************************
+     * emit value to async process.
+     * @param value process result value
+     **********************************
+     */
+    protected final void append(T value) {
+        try {
+        	appendMethod.invoke(internalProc.getExecFunc(), value);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-	/**
-	 **********************************
-	 * set callback for post process.
-	 * @param callback postproces call back
-	 * @return this instance
-	 **********************************
-	 */
-	public AsyncProcess<T> setPostProcess(PostProcFunc callback) {
-		postCallback = callback;
-		return this;
-	}
+    /**
+     **********************************
+     * call execute finish.
+     * (do nothing default)
+     **********************************
+     */
+    protected void postProcess() {
+    }
 
-	public AsyncProcess<T> doStart(ListenerFunc callback) {
-		startCallback = callback;
-		return this;
-	}
+    /**
+     **********************************
+     * execute process.
+     * @return async process result
+     **********************************
+     */
+    public final ClosableResult<T> run() {
+        return new ClosableResult<T>(internalProc);
+    }
 
-	public AsyncProcess<T> doFinish(ListenerFunc callback) {
-		endCallback = callback;
-		return this;
-	}
+    /**
+     **********************************
+     * execute process.
+     * @param bufSize append buffer size
+     * @return async process result
+     **********************************
+     */
+    public final ClosableResult<T> run(int bufSize) {
+        return new ClosableResult<T>(internalProc, bufSize);
+    }
 
-	@Override
-	public final void subscribe(FlowableEmitter<T> emitter) {
-		//logger.trace("call AsyncProc.subscribe()");
-		this.emitter = emitter;
-		this.emitter.setDisposable(this);
-		try {
-			execCallback.accept(this, this.emitter);
+    /**
+     **********************************
+     * execute process.
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     * @return async process result
+     **********************************
+     */
+    public final ClosableResult<T> run(boolean isDelayError) {
+        return new ClosableResult<T>(internalProc, isDelayError);
+    }
 
-			// exec start listener
-			startCallback.run();
-
-			// execute Process
-			execCallback.run();
-
-			this.emitter.onComplete();
-		} catch (Throwable t) {
-			if (this.emitter.tryOnError(t)) {
-				this.emitter.onError(t);
-			} else {
-				logger.trace("AsyncProc cancelled.");
-			}
-		}
-	}
-
-	/**
-	 **********************************
-	 * execute process.
-	 * @return iteratable result
-	 **********************************
-	 */
-	public final ClosableResult<T> run() {
-		return run(true);
-	}
-
-	/**
-	 **********************************
-	 * execute process.
-	 * @param delayError indicates if the onError notification may not cut ahead of onNext notification
-	 *        on the other side of the scheduling boundary. If true a sequence ending in onError
-	 *        will be replayed in the same order as was received from upstream
-	 * @return iteratable result
-	 **********************************
-	 */
-	public final ClosableResult<T> run(boolean delayError) {
-		return new ClosableResult<>(this, delayError);
-	}
-
-	/**
-	 **********************************
-	 * execute process.
-	 * @param bufSize the size of the buffer size
-	 * @return iteratable result
-	 **********************************
-	 */
-	public final ClosableResult<T> run(int bufSize) {
-		return new ClosableResult<>(this, bufSize);
-	}
-
-	/**
-	 **********************************
-	 * execute process.
-	 * @param bufSize the size of the buffer size
-	 * @param delayError indicates if the onError notification may not cut ahead of onNext notification
-	 *        on the other side of the scheduling boundary. If true a sequence ending in onError
-	 *        will be replayed in the same order as was received from upstream
-	 * @return iteratable result
-	 **********************************
-	 */
-	public final ClosableResult<T> run(int bufSize, boolean delayError) {
-		return new ClosableResult<>(this, bufSize, delayError);
-	}
-
-	@Override
-	public final void dispose() {
-		if (!isDisposed.get()) {
-			isDisposed.set(true);
-			//logger.trace("AsyncProcess.dispose() isDisposed={}", isDisposed);
-			doPostProcess();
-		}
-	}
-
-	@Override
-	public final boolean isDisposed() {
-		//logger.trace("AsyncProcess.isDisposed()={}", isDisposed);
-		return isDisposed.get();
-	}
-
-	/**
-	 **********************************
-	 * call process finished.
-	 **********************************
-	 */
-	private final void doPostProcess() {
-		postCallback.run();
-		endCallback.run();
-	}
+    /**
+     **********************************
+     * execute process.
+     * @param bufSize append buffer size
+     * @param isDelayError if true, the exception is delayed until all added data is read.
+     *                     if false, immediately raise an exception.
+     * @return async process result
+     **********************************
+     */
+    public final ClosableResult<T> run(int bufSize, boolean isDelayError) {
+        return new ClosableResult<T>(internalProc, bufSize, isDelayError);
+    }
 }
