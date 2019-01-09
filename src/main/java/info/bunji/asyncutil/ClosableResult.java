@@ -25,9 +25,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import info.bunji.asyncutil.AsyncProc.ExecuteFunc;
+import info.bunji.asyncutil.functions.PostFunc;
 import io.reactivex.BackpressureStrategy;
 import io.reactivex.Flowable;
-import io.reactivex.functions.Action;
 import io.reactivex.functions.Consumer;
 import io.reactivex.schedulers.Schedulers;
 
@@ -219,7 +219,7 @@ public final class ClosableResult<T> implements Iterable<T>, Closeable {
      * @param postFunc postProcess callback
      **********************************
      */
-    public ClosableResult(ExecuteFunc<T> execFunc, Action postFunc) {
+    public ClosableResult(ExecuteFunc<T> execFunc, PostFunc postFunc) {
         this(new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc));
     }
 
@@ -230,7 +230,7 @@ public final class ClosableResult<T> implements Iterable<T>, Closeable {
      * @param bufSize append buffer size
      **********************************
      */
-    public ClosableResult(ExecuteFunc<T> execFunc, Action postFunc, int bufSize) {
+    public ClosableResult(ExecuteFunc<T> execFunc, PostFunc postFunc, int bufSize) {
         this(new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc), bufSize);
     }
 
@@ -242,7 +242,7 @@ public final class ClosableResult<T> implements Iterable<T>, Closeable {
      *                     if false, immediately raise an exception.
      **********************************
      */
-    public ClosableResult(ExecuteFunc<T> execFunc, Action postFunc, boolean isDelayError) {
+    public ClosableResult(ExecuteFunc<T> execFunc, PostFunc postFunc, boolean isDelayError) {
       this(new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc), isDelayError);
     }
 
@@ -255,7 +255,7 @@ public final class ClosableResult<T> implements Iterable<T>, Closeable {
      *                     if false, immediately raise an exception.
      **********************************
      */
-    public ClosableResult(ExecuteFunc<T> execFunc, Action postFunc, int bufSize, boolean isDelayError) {
+    public ClosableResult(ExecuteFunc<T> execFunc, PostFunc postFunc, int bufSize, boolean isDelayError) {
         this(new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc), bufSize, isDelayError);
     }
 

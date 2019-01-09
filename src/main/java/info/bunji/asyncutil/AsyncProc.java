@@ -23,10 +23,11 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import info.bunji.asyncutil.functions.ExecResult;
+import info.bunji.asyncutil.functions.PostFunc;
 import io.reactivex.FlowableEmitter;
 import io.reactivex.FlowableOnSubscribe;
 import io.reactivex.disposables.Disposable;
-import io.reactivex.functions.Action;
 import io.reactivex.functions.LongConsumer;
 
 /**
@@ -44,13 +45,13 @@ public final class AsyncProc<T> implements FlowableOnSubscribe<T>, Disposable {
 
     private ExecuteFunc<T> execFunc = null;
 
-    private Action postFunc = EMPTY_ACTION;
+    private PostFunc postFunc = EMPTY_POST_FUNC;
 
     private AtomicBoolean isDisposed = new AtomicBoolean(false);
 
-    private static final Action EMPTY_ACTION = new Action() {
+    private static final PostFunc EMPTY_POST_FUNC = new PostFunc() {
         @Override
-        public void run() throws Exception {
+		public void execute(ExecResult result) {
             // do nothing.
         }
     };
@@ -89,10 +90,10 @@ public final class AsyncProc<T> implements FlowableOnSubscribe<T>, Disposable {
      * @return this instance
      **********************************
      */
-    public AsyncProc<T> setPostFunc(Action callback) {
+    public AsyncProc<T> setPostFunc(PostFunc callback) {
         if (callback == null) {
             //throw new IllegalArgumentException("callback function can not null.");
-            postFunc = EMPTY_ACTION;
+            postFunc = EMPTY_POST_FUNC;
         } else {
             postFunc = callback;
         };
@@ -109,7 +110,9 @@ public final class AsyncProc<T> implements FlowableOnSubscribe<T>, Disposable {
             isDisposed.set(true);
             logger.trace("AsyncProc.dispose()");
             try {
-                postFunc.run();
+ExecResult result = new ExecResult(execFunc.processedCnt.get());
+logger.trace(result.toString());
+            	postFunc.execute(result);
             } catch (Exception e) {
                 logger.error("exception in postFunc. msg=[{}]", e.getMessage());
             }
@@ -202,6 +205,9 @@ public final class AsyncProc<T> implements FlowableOnSubscribe<T>, Disposable {
         /** target emitter */
         private FlowableEmitter<T> emitter;
 
+        /** processed item count */
+        private final AtomicLong processedCnt = new AtomicLong(0);
+
         private final AtomicLong requested = new AtomicLong(0);
         private final ReentrantLock lock = new ReentrantLock();
         private final Condition isRequested = lock.newCondition();
@@ -271,6 +277,7 @@ public final class AsyncProc<T> implements FlowableOnSubscribe<T>, Disposable {
             }
             emitter.onNext(value);
             requested.decrementAndGet();
+processedCnt.incrementAndGet();
         }
     }
 }

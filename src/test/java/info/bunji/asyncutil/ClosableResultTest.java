@@ -2,6 +2,7 @@ package info.bunji.asyncutil;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -11,6 +12,8 @@ import java.util.List;
 
 import org.junit.FixMethodOrder;
 import org.junit.Test;
+
+import info.bunji.asyncutil.functions.ExecResult;
 
 @FixMethodOrder
 public class ClosableResultTest extends AsyncTestBase {
@@ -108,7 +111,7 @@ public class ClosableResultTest extends AsyncTestBase {
 			assertThat(results.toList().size(), is(size));
 		} finally {
 			verify(execAction, times(1)).execute();
-			verify(postAction, times(1)).run();
+			verify(postAction, times(1)).execute(any(ExecResult.class));
 		}
 	}
 
@@ -121,7 +124,7 @@ public class ClosableResultTest extends AsyncTestBase {
 			assertThat(results.toList().size(), is(size));
 		} finally {
 			verify(execAction, times(1)).execute();
-			verify(postAction, times(1)).run();
+			verify(postAction, times(1)).execute(any(ExecResult.class));
 		}
 	}
 
@@ -134,7 +137,8 @@ public class ClosableResultTest extends AsyncTestBase {
 			assertThat(results.toList().size(), is(size));
 		} finally {
 			verify(execAction, times(1)).execute();
-			verify(postAction, times(1)).run();
+			Thread.sleep(500);
+			verify(postAction, times(1)).execute((ExecResult)any());
 		}
 	}
 
@@ -147,7 +151,8 @@ public class ClosableResultTest extends AsyncTestBase {
 			assertThat(results.toList().size(), is(size));
 		} finally {
 			verify(execAction, times(1)).execute();
-			verify(postAction, times(1)).run();
+			Thread.sleep(500);
+			verify(postAction, times(1)).execute(any(ExecResult.class));
 		}
 	}
 

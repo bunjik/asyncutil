@@ -21,7 +21,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import info.bunji.asyncutil.AsyncProc.ExecuteFunc;
-import io.reactivex.functions.Action;
+import info.bunji.asyncutil.functions.ExecResult;
+import info.bunji.asyncutil.functions.PostFunc;
 
 /**
  ************************************************
@@ -66,9 +67,9 @@ public abstract class AsyncProcess<T> {
         };
 
         // wrap postProcess().
-        Action postFunc = new Action() {
+        PostFunc postFunc = new PostFunc() {
             @Override
-            public void run() throws Exception {
+            public void execute(ExecResult result) {
                 process.postProcess();
             }
         };

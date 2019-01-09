@@ -3,6 +3,7 @@ package info.bunji.asyncutil;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThan;
+import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,7 +11,8 @@ import static org.mockito.Mockito.verify;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 
-import io.reactivex.functions.Action;
+import info.bunji.asyncutil.functions.ExecResult;
+import info.bunji.asyncutil.functions.PostFunc;
 
 @FixMethodOrder
 public class AsyncProcTest extends AsyncTestBase {
@@ -61,13 +63,13 @@ public class AsyncProcTest extends AsyncTestBase {
 	public void testRun_withPostPostfunc() throws Exception {
 		int size = 10000;
 		IntExecAction execFunc = spy(new IntExecAction(size));
-		Action postFunc = spy(new TestPostAction());
+		PostFunc postFunc = spy(new TestPostAction());
 		AsyncProc<Integer> proc = new AsyncProc<Integer>().setExecFunc(execFunc).setPostFunc(postFunc);
 		try (ClosableResult<Integer> results = proc.run()) {
 			assertThat(results.toList().size(), is(size));
 		} finally {
 			verify(execFunc, times(1)).execute();
-			verify(postFunc, times(1)).run();
+			verify(postFunc, times(1)).execute(any(ExecResult.class));
 		}
 	}
 
@@ -98,7 +100,7 @@ public class AsyncProcTest extends AsyncTestBase {
 	@Test
 	public void testRun_interrupt() throws Exception {
 		IntExecAction execFunc = spy(new IntExecAction(10000));
-		Action postFunc = spy(new TestPostAction());
+		PostFunc postFunc = spy(new TestPostAction());
 		AsyncProc<Integer> proc = new AsyncProc<Integer>().setExecFunc(execFunc).setPostFunc(postFunc);
 		try (ClosableResult<Integer> results = proc.run()) {
 			for (int n : results) {
@@ -107,7 +109,7 @@ public class AsyncProcTest extends AsyncTestBase {
 			}
 		} finally {
 			verify(execFunc, times(1)).execute();
-			verify(postFunc, times(1)).run();
+			verify(postFunc, times(1)).execute(any(ExecResult.class));
 		}
 	}
 
@@ -156,9 +158,9 @@ public class AsyncProcTest extends AsyncTestBase {
 	public void test_exceptionInPostFunc() throws Exception {
 		int size = 1000;
 		IntExecAction execFunc = spy(new IntExecAction(size));
-		Action postFunc = spy(new Action() {
+		PostFunc postFunc = spy(new PostFunc() {
 			@Override
-			public void run() throws Exception {
+			public void execute(ExecResult result) {
 				throw new IllegalStateException("exception in postFunc.");
 			}
 		});
@@ -166,8 +168,9 @@ public class AsyncProcTest extends AsyncTestBase {
 		try (ClosableResult<Integer> results = new ClosableResult<>(proc)) {
 			assertThat(results.toList().size(), is(size));
 		} finally {
+			Thread.sleep(500);
 			verify(execFunc, times(1)).execute();
-			verify(postFunc, times(1)).run();
+			verify(postFunc, times(1)).execute(any(ExecResult.class));
 		}
 	}
 }

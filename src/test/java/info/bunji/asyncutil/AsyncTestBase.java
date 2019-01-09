@@ -23,7 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import info.bunji.asyncutil.AsyncProc.ExecuteFunc;
-import io.reactivex.functions.Action;
+import info.bunji.asyncutil.functions.ExecResult;
+import info.bunji.asyncutil.functions.PostFunc;
 
 /**
  ************************************************
@@ -102,11 +103,11 @@ public abstract class AsyncTestBase {
         }
     }
 
-    public static class TestPostAction implements Action {
+    public static class TestPostAction implements PostFunc {
         private Logger logger = LoggerFactory.getLogger(getClass());
         @Override
-        public void run() {
-            logger.debug("call postAction.");
+        public void execute(ExecResult result) {
+            logger.debug("call postFunc. [{}]", result);
         }
     }
 
