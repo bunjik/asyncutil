@@ -23,7 +23,6 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import info.bunji.asyncutil.functions.ExecResult;
 import info.bunji.asyncutil.functions.PostFunc;
 import io.reactivex.FlowableEmitter;
 import io.reactivex.FlowableOnSubscribe;
@@ -46,6 +45,10 @@ public final class AsyncProc<T> implements FlowableOnSubscribe<T>, Disposable {
     private ExecuteFunc<T> execFunc = null;
 
     private PostFunc postFunc = EMPTY_POST_FUNC;
+
+    private long startTime = System.currentTimeMillis();
+
+    private volatile Throwable exception = null;
 
     private AtomicBoolean isDisposed = new AtomicBoolean(false);
 
@@ -106,13 +109,17 @@ public final class AsyncProc<T> implements FlowableOnSubscribe<T>, Disposable {
 
     @Override
     public void dispose() {
-        if (!isDisposed.get()) {
-            isDisposed.set(true);
+    	if (!isDisposed.getAndSet(true)) {
+            // unlock append
+            execFunc.signalAll();
+
             logger.trace("AsyncProc.dispose()");
             try {
-ExecResult result = new ExecResult(execFunc.processedCnt.get());
-logger.trace(result.toString());
-            	postFunc.execute(result);
+            	long execTime = System.currentTimeMillis() - startTime;
+            	ExecResult result = new ExecResult(execFunc.processedCnt.get(), execTime, exception);
+                logger.trace(result.toString());
+if (exception != null) exception.printStackTrace();
+                postFunc.execute(result);
             } catch (Exception e) {
                 logger.error("exception in postFunc. msg=[{}]", e.getMessage());
             }
@@ -128,6 +135,7 @@ logger.trace(result.toString());
     public final void subscribe(FlowableEmitter<T> emitter) throws Exception {
         this.emitter = emitter.serialize();
         this.emitter.setDisposable(this);
+        startTime = System.currentTimeMillis();
         try {
             execFunc.accept(this);
 
@@ -136,9 +144,12 @@ logger.trace(result.toString());
 
             this.emitter.onComplete();
         } catch (Throwable t) {
+        	if (!emitter.isCancelled()) {
+        	    exception = t;
+        	}
             if (!this.emitter.tryOnError(t)) {
                 logger.debug("AsyncProc cancelled.");
-            }
+        	}
         }
     }
 
@@ -215,7 +226,7 @@ logger.trace(result.toString());
         /**
          **********************************
          * execute action impl.
-         * @throws Exception
+         * @throws Exception exception in execute
          **********************************
          */
         public abstract void execute() throws Exception;
@@ -223,7 +234,7 @@ logger.trace(result.toString());
         /**
          **********************************
          * internal use only.
-         * @param proc
+         * @param proc execute process instance
          **********************************
          */
         final void accept(AsyncProc<T> proc) {
@@ -238,16 +249,8 @@ logger.trace(result.toString());
          */
         @Override
         public final void accept(long request) {
-            //logger.trace("call onRequest({})", request);
-            //long cnt = requested.addAndGet(request);
-            //logger.debug("hasRequest = {}", cnt);
             requested.addAndGet(request);
-            lock.lock();
-            try {
-                isRequested.signalAll();
-            } finally {
-                lock.unlock();
-            }
+            signalAll();
         }
 
         /**
@@ -258,26 +261,36 @@ logger.trace(result.toString());
          */
         protected final void append(T value) {
             if (requested.get() <= 0) {
-                lock.lock();
+            	lock.lock();
                 try {
-//                  logger.trace("blocking append() no buffer space.");
-                  isRequested.awaitUninterruptibly();
-//                	isRequested.await();
-//                  logger.trace("unlock block.");
-//                } catch (InterruptedException e) {
-//                    throw new ProcessExecuteException("interrupted process.", e);
+                    //logger.trace("blocking append()");
+                    isRequested.await();
+                } catch (InterruptedException ie) {
+                    throw new RuntimeException(ie);
                 } finally {
                     lock.unlock();
+                    //logger.trace("unblock append()");
                 }
             }
+
             if (parentProc.isDisposed()) {
-            	emitter.onComplete();
-                logger.trace("process disposed. isDisposeed={}", parentProc.isDisposed());
+                emitter.onComplete();
+                logger.trace("interrupt append(). [process disposed]");
                 throw new IllegalStateException("process disposed.");
             }
             emitter.onNext(value);
             requested.decrementAndGet();
-processedCnt.incrementAndGet();
+            processedCnt.incrementAndGet();
+        }
+
+        // unblock append()
+        private final void signalAll() {
+            lock.lock();
+            try {
+                isRequested.signalAll();
+            } finally {
+                lock.unlock();
+            }
         }
     }
 }

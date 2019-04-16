@@ -15,7 +15,9 @@
  */
 package info.bunji.asyncutil.functions;
 
+import info.bunji.asyncutil.ExecResult;
+
 public interface PostFunc {
 
-	void execute(ExecResult result);
+    void execute(ExecResult result);
 }

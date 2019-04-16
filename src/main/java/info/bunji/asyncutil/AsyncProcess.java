@@ -21,7 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import info.bunji.asyncutil.AsyncProc.ExecuteFunc;
-import info.bunji.asyncutil.functions.ExecResult;
 import info.bunji.asyncutil.functions.PostFunc;
 
 /**
@@ -66,7 +65,7 @@ public abstract class AsyncProcess<T> {
             }
         };
 
-        // wrap postProcess().
+        // wrap postProcess()
         PostFunc postFunc = new PostFunc() {
             @Override
             public void execute(ExecResult result) {
@@ -117,6 +116,7 @@ public abstract class AsyncProcess<T> {
      **********************************
      */
     protected void postProcess() {
+        logger.trace("call postProcess()");
     }
 
     /**

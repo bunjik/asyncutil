@@ -162,11 +162,6 @@ public final class ClosableResult<T> implements Iterable<T>, Closeable {
                                  })
                                 .observeOn(Schedulers.newThread(), isDelayError, bufSize)
                                 .subscribeOn(Schedulers.newThread(), false);
-//	    // set post action
-//	    if (asyncProc.getPostFunc() != null) {
-//	    	//f = f.doFinally(asyncProc.getPostFunc());
-//	        //f = f.doOnTerminate(asyncProc.getPostFunc());
-//	    }
 
  	    this.iterator = new BlockingFlowable<>(f, bufSize, isDelayError).iterator();
 	}
@@ -258,10 +253,6 @@ public final class ClosableResult<T> implements Iterable<T>, Closeable {
     public ClosableResult(ExecuteFunc<T> execFunc, PostFunc postFunc, int bufSize, boolean isDelayError) {
         this(new AsyncProc<T>().setExecFunc(execFunc).setPostFunc(postFunc), bufSize, isDelayError);
     }
-
-public static <T> ClosableResult<T> run(ExecuteFunc<T> execFunc) {
-    return new ClosableResult<T>(new AsyncProc<T>().setExecFunc(execFunc));
-}
 
     /**
       **********************************

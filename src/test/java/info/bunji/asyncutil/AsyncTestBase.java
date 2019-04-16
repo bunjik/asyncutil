@@ -23,7 +23,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import info.bunji.asyncutil.AsyncProc.ExecuteFunc;
-import info.bunji.asyncutil.functions.ExecResult;
 import info.bunji.asyncutil.functions.PostFunc;
 
 /**

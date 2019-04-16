@@ -13,8 +13,6 @@ import java.util.List;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 
-import info.bunji.asyncutil.functions.ExecResult;
-
 @FixMethodOrder
 public class ClosableResultTest extends AsyncTestBase {
 
@@ -110,6 +108,7 @@ public class ClosableResultTest extends AsyncTestBase {
 		try (ClosableResult<Integer> results = new ClosableResult<>(execAction, postAction)) {
 			assertThat(results.toList().size(), is(size));
 		} finally {
+			Thread.sleep(100);
 			verify(execAction, times(1)).execute();
 			verify(postAction, times(1)).execute(any(ExecResult.class));
 		}
@@ -123,6 +122,7 @@ public class ClosableResultTest extends AsyncTestBase {
 		try (ClosableResult<Integer> results = new ClosableResult<>(execAction, postAction, 256)) {
 			assertThat(results.toList().size(), is(size));
 		} finally {
+			Thread.sleep(100);
 			verify(execAction, times(1)).execute();
 			verify(postAction, times(1)).execute(any(ExecResult.class));
 		}
@@ -136,8 +136,8 @@ public class ClosableResultTest extends AsyncTestBase {
 		try (ClosableResult<Integer> results = new ClosableResult<>(execAction, postAction, true)) {
 			assertThat(results.toList().size(), is(size));
 		} finally {
+			Thread.sleep(100);
 			verify(execAction, times(1)).execute();
-			Thread.sleep(500);
 			verify(postAction, times(1)).execute((ExecResult)any());
 		}
 	}

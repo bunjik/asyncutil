@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verify;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 
-import info.bunji.asyncutil.functions.ExecResult;
 import info.bunji.asyncutil.functions.PostFunc;
 
 @FixMethodOrder
@@ -68,6 +67,7 @@ public class AsyncProcTest extends AsyncTestBase {
 		try (ClosableResult<Integer> results = proc.run()) {
 			assertThat(results.toList().size(), is(size));
 		} finally {
+			Thread.sleep(200);
 			verify(execFunc, times(1)).execute();
 			verify(postFunc, times(1)).execute(any(ExecResult.class));
 		}
@@ -171,6 +171,18 @@ public class AsyncProcTest extends AsyncTestBase {
 			Thread.sleep(500);
 			verify(execFunc, times(1)).execute();
 			verify(postFunc, times(1)).execute(any(ExecResult.class));
+		}
+	}
+
+	@Test
+	public void test_appendInterrupt() throws Exception {
+		int size = 100;
+		IntExecAction execFunc = new IntExecAction(size);
+		try (ClosableResult<Integer> results = new ClosableResult<>(execFunc, 32)) {
+			// no read result
+			Thread.sleep(1000);
+		} finally {
+			Thread.sleep(500);
 		}
 	}
 }

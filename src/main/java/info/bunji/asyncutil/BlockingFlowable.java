@@ -163,7 +163,7 @@ final class BlockingFlowable<T> implements Iterable<T> {
             if (!queue.offer(t)) {
                 SubscriptionHelper.cancel(this);
                 // FIXME
-                onError(new MissingBackpressureException("Queue full?!"));
+                onError(new MissingBackpressureException("queue is full?!"));
             } else {
                 signalConsumer();
             }
