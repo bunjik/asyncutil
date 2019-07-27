@@ -174,7 +174,7 @@ final class BlockingFlowable<T> implements Iterable<T> {
             error = t;
             done = true;
             if (!delayError) {
-            	// clear unread values
+                // clear unread values
                 queue.clear();
             }
             signalConsumer();

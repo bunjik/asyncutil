@@ -99,7 +99,7 @@ public final class AsyncProc<T> implements FlowableOnSubscribe<T>, Disposable {
             postFunc = EMPTY_POST_FUNC;
         } else {
             postFunc = callback;
-        };
+        }
         return this;
     }
 

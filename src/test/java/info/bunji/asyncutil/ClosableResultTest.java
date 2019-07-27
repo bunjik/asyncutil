@@ -160,7 +160,9 @@ public class ClosableResultTest extends AsyncTestBase {
 	public void testFromItetrable() throws Exception {
 		int size = 1000;
 		List<Integer> source = new ArrayList<>();
-		for (int i = 1; i <= size; i++) source.add(i);
+		for (int i = 1; i <= size; i++) {
+			source.add(i);
+		}
 		try (ClosableResult<Integer> results = new ClosableResult<>(source)) {
 			assertThat(results.toList().size(), is(size));
 		}
@@ -170,7 +172,9 @@ public class ClosableResultTest extends AsyncTestBase {
 	public void testFromItetrable_withBufSize() throws Exception {
 		int size = 1000;
 		List<Integer> source = new ArrayList<>();
-		for (int i = 1; i <= size; i++) source.add(i);
+		for (int i = 1; i <= size; i++) {
+			source.add(i);
+		}
 		try (ClosableResult<Integer> results = new ClosableResult<>(source, 256)) {
 			assertThat(results.toList().size(), is(size));
 		}

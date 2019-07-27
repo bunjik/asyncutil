@@ -95,7 +95,7 @@ public abstract class AsyncTestBase {
             for (int i = 1; i <= size; i++) {
                 append(i);
                 if (i >= throwCnt) {
-                	//logger.debug("exception occurred now.");
+                    //logger.debug("exception occurred now.");
                     throw new IllegalStateException("error in execute() i=" + i);
                 }
             }
@@ -104,6 +104,7 @@ public abstract class AsyncTestBase {
 
     public static class TestPostAction implements PostFunc {
         private Logger logger = LoggerFactory.getLogger(getClass());
+
         @Override
         public void execute(ExecResult result) {
             logger.debug("call postFunc. [{}]", result);

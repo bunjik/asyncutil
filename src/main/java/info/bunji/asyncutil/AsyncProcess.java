@@ -33,7 +33,7 @@ import info.bunji.asyncutil.functions.PostFunc;
  */
 public abstract class AsyncProcess<T> {
 
-	/** logger */
+    /** logger */
     protected Logger logger = LoggerFactory.getLogger(getClass());
     /** converted  AsyncProc instance */
     private final AsyncProc<T> internalProc;

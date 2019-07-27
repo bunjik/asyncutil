@@ -15,6 +15,10 @@
  */
 package info.bunji.asyncutil;
 
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.CountDownLatch;
+
 /**
  ************************************************
  * interval execute process.
@@ -41,31 +45,69 @@ public abstract class AsyncIntervalProcess<T> extends AsyncProcess<T> {
 		this.interval = interval;
 	}
 
-	/*
+	/**
 	 **********************************
-	 * @see info.bunji.asyncutil.AsyncProcess#execute()
+	 * implements interval processing.
+	 *
+	 * @return true if continue process, otherwise false
+	 * @throws Exception
 	 **********************************
 	 */
-	@Override
-	protected final void execute() throws Exception {
-		while (!getAsyncProc().isDisposed()) {
-			if (!executeInterval()) {
-				break;
-			}
-			Thread.sleep(interval);
-		}
+	protected abstract boolean executeInterval() throws Exception;
+
+    /*
+     **********************************
+     * @see info.bunji.asyncutil.AsyncProcess#execute()
+     **********************************
+     */
+    @Override
+    protected final void execute() throws Exception {
+
+        final Timer timer = new Timer(false);
+        final CountDownLatch latch = new CountDownLatch(1);
+
+        ExecTimerTask task = new ExecTimerTask(latch, timer);
+        timer.scheduleAtFixedRate(task, 0, interval);
+
+        // wait execute finish
+        latch.await();
+        timer.cancel();
+
+        if (task.exception != null) {
+        	throw task.exception;
+        }
 	}
 
 	protected final void dispose() {
 		getAsyncProc().dispose();
 	}
 
-	/**
-	 **********************************
-	 * implements interval processing.
-	 *
-	 * @return true if continue process, otherwise false
-	 **********************************
+	/*
+	 * internal execute timer task
 	 */
-	protected abstract boolean executeInterval() throws Exception;
+    private final class ExecTimerTask extends TimerTask {
+        private volatile Exception exception = null;
+        private final CountDownLatch latch;
+        private final Timer timer;
+
+        private ExecTimerTask(CountDownLatch latch, Timer timer) {
+        	this.latch = latch;
+        	this.timer = timer;
+        }
+
+        @Override
+        public void run() {
+            try {
+                if (getAsyncProc().isDisposed() || !executeInterval()) {
+                    timer.cancel();
+                    latch.countDown();
+                }
+            } catch (Exception e) {
+                // set exception.
+                exception = e;
+                timer.cancel();
+                latch.countDown();
+            }
+        }
+    }
 }

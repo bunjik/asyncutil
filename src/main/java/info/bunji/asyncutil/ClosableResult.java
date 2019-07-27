@@ -52,7 +52,8 @@ import io.reactivex.schedulers.Schedulers;
  ************************************************
  */
 public final class ClosableResult<T> implements Iterable<T>, Closeable {
-	/** logger */
+
+    /** logger */
     protected final Logger logger = LoggerFactory.getLogger(getClass());
     /** execute process */
     private final AsyncProc<T> asyncProc;
@@ -106,7 +107,7 @@ public final class ClosableResult<T> implements Iterable<T>, Closeable {
      **********************************
      */
     public ClosableResult(AsyncProcess<T> proc, int bufSize, boolean isDelayError) {
-        this(proc.getAsyncProc(), DEFAULT_BUF_SIZE, isDelayError);
+        this(proc.getAsyncProc(), bufSize, isDelayError);
     }
 
     /**
